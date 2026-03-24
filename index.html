@@ -468,9 +468,9 @@
         };
 
         const $ = (id) => document.getElementById(id);
-        const showToast = (msg) => {
+        const showToast = (msg, duration = 2500) => {
             $('toast-msg').innerText = msg; $('toast').classList.remove('opacity-0');
-            setTimeout(() => $('toast').classList.add('opacity-0'), 2500);
+            setTimeout(() => $('toast').classList.add('opacity-0'), duration);
         };
         let _loaderHintTimer = null;
         const toggleLoader = (show, txt="Loading...") => {
@@ -668,9 +668,9 @@
                     (err) => {
                         // Surface the actual iOS error so the user knows what to do
                         const msgs = {
-                            1: "Permission denied", // User or iOS Settings blocked it
-                            2: "No signal",         // GPS hardware unavailable
-                            3: "Timed out"          // Took too long — common indoors
+                            1: "Denied",      // Permission denied
+                            2: "No signal",   // GPS hardware unavailable
+                            3: "Timed out"    // Took too long
                         };
                         this.setGPSError(msgs[err.code] || "Unavailable");
                         if (err.code === 1) {
@@ -692,10 +692,10 @@
             }
 
             requestGPS() {
-                // Tapping the GPS tile retries — useful after a permission denial or timeout
                 if (state.location) {
-                    // Already have a fix — show current coords and accuracy in a toast
-                    showToast(`GPS active: ${state.location.lat.toFixed(5)}, ${state.location.lng.toFixed(5)}`);
+                    showToast(`GPS: ${state.location.lat.toFixed(5)}, ${state.location.lng.toFixed(5)}`);
+                } else if ($('gps-val').innerText === 'Denied') {
+                    showToast("Settings → Privacy → Location → Safari → Allow", 5000);
                 } else {
                     showToast("Retrying GPS…");
                     this.startGPS();
