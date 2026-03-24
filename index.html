@@ -4,23 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Field Cam</title>
-    
-    <!-- Styles & Fonts -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    
-    <!-- Libraries -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <!-- Exif-JS for Metadata Extraction -->
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
-    <!-- HEIC to JPEG Converter -->
     <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
     <style>
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f1f5f9; }
         .tab-content { display: none; height: 100%; overflow-y: auto; }
@@ -32,9 +24,43 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         canvas { touch-action: none; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* ── Upload timeout countdown bar ── */
+        #upload-timeout-bar {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 4px;
+            background: #e2e8f0;
+            z-index: 200;
+        }
+        #upload-timeout-bar .fill {
+            height: 100%;
+            background: linear-gradient(90deg, #3b82f6, #f59e0b);
+            width: 100%;
+            transform-origin: left;
+            transition: transform linear;
+        }
+        #upload-timeout-label {
+            display: none;
+            position: fixed;
+            top: 6px; left: 50%; transform: translateX(-50%);
+            background: #1e293b;
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 999px;
+            z-index: 201;
+            letter-spacing: 0.05em;
+        }
     </style>
 </head>
 <body class="text-slate-800 h-[100dvh] flex flex-col overflow-hidden">
+
+    <!-- Upload timeout progress bar (shown during uploads) -->
+    <div id="upload-timeout-bar"><div class="fill" id="upload-timeout-fill"></div></div>
+    <div id="upload-timeout-label">Uploading… <span id="upload-timeout-secs">8</span>s</div>
 
     <!-- HEADER -->
     <header class="bg-white shadow-sm z-30 px-4 py-3 flex justify-between items-center border-b border-slate-200 flex-none">
@@ -66,8 +92,6 @@
 
         <!-- TAB 1: INSPECT -->
         <div id="tab-inspect" class="tab-content active p-4 space-y-4">
-            
-            <!-- Sensor Dashboard -->
             <div class="grid grid-cols-3 gap-3">
                 <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">GPS</div>
@@ -90,20 +114,15 @@
                 </div>
             </div>
 
-            <!-- Main Actions -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-sm font-bold text-slate-700">Capture</h2>
-                    <div class="flex items-center gap-2">
-                         <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
-                            <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-gray-300">
-                            <span>Overlay Data</span>
-                        </label>
-                    </div>
+                    <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
+                        <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-gray-300">
+                        <span>Overlay Data</span>
+                    </label>
                 </div>
-
                 <div class="grid grid-cols-2 gap-3">
-                    <!-- 1. Live Photo Container -->
                     <div class="flex flex-col gap-2">
                         <label class="cursor-pointer group relative flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 rounded-xl p-4 border-2 border-dashed border-blue-200 transition active:scale-95 h-28">
                             <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
@@ -116,8 +135,6 @@
                             <i data-lucide="layers" class="w-3 h-3"></i> <span id="series-text">Series Mode</span>
                         </button>
                     </div>
-
-                    <!-- 2. Gallery Upload -->
                     <label class="cursor-pointer group relative flex flex-col items-center justify-center bg-indigo-50 hover:bg-indigo-100 rounded-xl p-4 border-2 border-dashed border-indigo-200 transition active:scale-95 h-28">
                         <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
                             <i data-lucide="image" class="w-5 h-5"></i>
@@ -125,16 +142,12 @@
                         <span class="text-xs font-bold text-indigo-900">Gallery</span>
                         <input type="file" id="gallery-input" accept="image/*" class="hidden">
                     </label>
-
-                    <!-- 3. Sketch -->
                     <button onclick="window.app.openSketch()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-purple-50 hover:bg-purple-100 rounded-xl p-4 border-2 border-dashed border-purple-200 transition active:scale-95 h-28">
                         <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
                             <i data-lucide="pen-tool" class="w-5 h-5"></i>
                         </div>
                         <span class="text-xs font-bold text-purple-900">Sketch</span>
                     </button>
-
-                    <!-- 4. Notes (Triggers Modal) -->
                     <button onclick="window.app.openNotes()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-emerald-50 hover:bg-emerald-100 rounded-xl p-4 border-2 border-dashed border-emerald-200 transition active:scale-95 h-28">
                         <div class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
                             <i data-lucide="file-text" class="w-5 h-5"></i>
@@ -148,15 +161,12 @@
         <!-- TAB 2: REPORT -->
         <div id="tab-report" class="tab-content h-full bg-white">
             <div class="flex flex-col h-full">
-                <!-- Header with Report Button -->
                 <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 flex-none">
                     <h2 class="font-bold text-slate-800">Project Log</h2>
                     <button onclick="window.app.genPDF()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 active:scale-95 transition">
                         <i data-lucide="file-text" class="w-3 h-3"></i> Generate Report
                     </button>
                 </div>
-
-                <!-- Toolbar -->
                 <div class="p-3 border-b border-slate-200 flex gap-2 overflow-x-auto no-scrollbar bg-white sticky top-0 z-10 flex-none">
                     <div class="flex-1 relative">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
@@ -169,13 +179,7 @@
                         <button onclick="window.app.setFilter('note')" id="filter-note" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Notes</button>
                     </div>
                 </div>
-
-                <!-- Feed -->
-                <div id="report-feed" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 pb-20">
-                    <!-- Dynamic Content -->
-                </div>
-
-                <!-- Floating Action for Export -->
+                <div id="report-feed" class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50 pb-20"></div>
                 <div class="absolute bottom-4 right-4 z-20">
                     <button onclick="document.getElementById('export-modal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg flex items-center gap-2 pr-5 transition transform active:scale-95">
                         <i data-lucide="download" class="w-5 h-5"></i>
@@ -207,7 +211,6 @@
                 <div id="file-grid" class="flex-1 overflow-y-auto p-4 grid grid-cols-3 sm:grid-cols-4 gap-3 content-start"></div>
             </div>
         </div>
-
     </main>
 
     <!-- BOTTOM NAVIGATION -->
@@ -235,7 +238,7 @@
         <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
                 <div class="flex items-center gap-2 text-slate-700 font-bold">
-                    <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i> 
+                    <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i>
                     <span id="note-modal-title">Field Observation</span>
                 </div>
                 <button onclick="window.app.closeNotes()" class="p-1 rounded hover:bg-slate-200 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i></button>
@@ -270,12 +273,17 @@
                 </button>
             </div>
             <div class="p-5 flex-1 overflow-y-auto">
-                <h3 class="text-sm font-bold text-slate-800 uppercase mb-3 flex justify-between">
+                <h3 class="text-sm font-bold text-slate-800 uppercase mb-3">
                     <span id="modal-title-text">Image Details</span>
                 </h3>
                 <div class="space-y-3">
                     <div>
-                        <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                        <div class="flex justify-between items-center mb-1">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                            <button type="button" id="use-last-btn" onclick="window.app.useLastCaption()" class="hidden text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full transition flex items-center gap-1">
+                                <i data-lucide="copy" class="w-3 h-3"></i> Use Last
+                            </button>
+                        </div>
                         <input type="text" id="cap-title" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                     </div>
                     <div>
@@ -299,8 +307,8 @@
                 <input type="color" id="sketch-color" value="#ef4444" class="w-8 h-8 rounded-full overflow-hidden border-0 p-0 cursor-pointer">
                 <input type="range" id="sketch-size" min="2" max="15" value="4" class="w-24 accent-blue-600">
                 <div class="w-px h-6 bg-slate-300 mx-1"></div>
-                <button onclick="window.app.toggleEraser()" id="btn-eraser" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition" title="Eraser"><i data-lucide="eraser" class="w-5 h-5"></i></button>
-                <button onclick="window.app.undoSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition" title="Undo"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
+                <button onclick="window.app.toggleEraser()" id="btn-eraser" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition"><i data-lucide="eraser" class="w-5 h-5"></i></button>
+                <button onclick="window.app.undoSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
             </div>
             <button onclick="window.app.saveSketch()" class="text-blue-600 font-bold text-sm">Done</button>
         </div>
@@ -321,19 +329,19 @@
             </div>
             <div class="p-5 space-y-3">
                 <button onclick="window.app.genPDF()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 transition group">
-                    <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mr-3 group-hover:bg-red-200"><i data-lucide="file-text" class="w-5 h-5"></i></div>
+                    <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mr-3"><i data-lucide="file-text" class="w-5 h-5"></i></div>
                     <div class="text-left"><div class="font-bold text-slate-700 text-sm">PDF Report</div><div class="text-[10px] text-slate-500">Compiles photos & notes</div></div>
                 </button>
                 <button onclick="window.app.genCSV()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-green-50 hover:border-green-200 transition group">
-                    <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3 group-hover:bg-green-200"><i data-lucide="table" class="w-5 h-5"></i></div>
+                    <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3"><i data-lucide="table" class="w-5 h-5"></i></div>
                     <div class="text-left"><div class="font-bold text-slate-700 text-sm">CSV Data</div><div class="text-[10px] text-slate-500">Spreadsheet compatible</div></div>
                 </button>
                 <button onclick="window.app.genZip()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition group">
-                    <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3 group-hover:bg-blue-200"><i data-lucide="archive" class="w-5 h-5"></i></div>
+                    <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i data-lucide="archive" class="w-5 h-5"></i></div>
                     <div class="text-left"><div class="font-bold text-slate-700 text-sm">Photos ZIP</div><div class="text-[10px] text-slate-500">Full resolution archive</div></div>
                 </button>
                 <button onclick="window.app.genRawZip()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-orange-50 hover:border-orange-200 transition group">
-                    <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mr-3 group-hover:bg-orange-200"><i data-lucide="camera-off" class="w-5 h-5"></i></div>
+                    <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mr-3"><i data-lucide="camera-off" class="w-5 h-5"></i></div>
                     <div class="text-left"><div class="font-bold text-slate-700 text-sm">Raw Images ZIP</div><div class="text-[10px] text-slate-500">Originals without overlay</div></div>
                 </button>
             </div>
@@ -344,45 +352,47 @@
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4 fade-in">
         <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl">
             <h3 class="text-lg font-bold text-slate-800 mb-4">Project Settings</h3>
-            
             <div class="flex items-center justify-between mb-4">
                 <span class="text-xs font-bold text-slate-500 uppercase">Connection</span>
-                <button id="offline-toggle-btn" onclick="window.app.toggleForceOffline()" class="text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition">
-                    Online
-                </button>
+                <button id="offline-toggle-btn" onclick="window.app.toggleForceOffline()" class="text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition">Online</button>
             </div>
-            
+
+            <!-- ── Upload Timeout Setting ── NEW ── -->
+            <div class="flex items-center justify-between mb-4">
+                <div>
+                    <span class="text-xs font-bold text-slate-500 uppercase">Upload Timeout</span>
+                    <p class="text-[10px] text-slate-400">Auto-save offline if upload stalls</p>
+                </div>
+                <div class="flex items-center gap-1">
+                    <input type="number" id="timeout-setting" value="8" min="3" max="30"
+                        onchange="window.app.setUploadTimeout(this.value)"
+                        class="w-12 border border-slate-300 rounded p-1 text-xs text-center font-bold focus:ring-2 focus:ring-blue-500 outline-none">
+                    <span class="text-xs text-slate-500">sec</span>
+                </div>
+            </div>
+
             <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Active Project</label>
             <select id="project-select" onchange="window.app.switchProject(this.value)" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm mb-1 bg-white"></select>
-            
             <div class="text-right mb-3">
                 <button onclick="window.app.deleteCurrentProject()" class="text-[10px] font-bold text-red-500 hover:text-red-700 underline">Delete Project & Data</button>
             </div>
-
             <div class="border-t border-slate-200 my-4"></div>
-
-            <!-- STORAGE METER -->
             <div class="mb-4">
-                 <div class="flex justify-between items-end mb-1">
+                <div class="flex justify-between items-end mb-1">
                     <span class="text-xs font-bold text-slate-500 uppercase">Storage Used</span>
                     <span id="storage-text" class="text-[10px] text-slate-400">0 MB / 5 GB</span>
-                 </div>
-                 <div class="w-full bg-slate-200 rounded-full h-2 mb-2">
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-2 mb-2">
                     <div id="storage-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
-                 </div>
-                 <button onclick="window.app.calculateStorageUsage()" class="w-full text-xs font-bold text-blue-600 border border-blue-200 rounded py-1 hover:bg-blue-50 transition">
-                    Check Usage
-                 </button>
+                </div>
+                <button onclick="window.app.calculateStorageUsage()" class="w-full text-xs font-bold text-blue-600 border border-blue-200 rounded py-1 hover:bg-blue-50 transition">Check Usage</button>
             </div>
-
             <div class="border-t border-slate-200 my-4"></div>
-            
             <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">New Project</label>
             <div class="flex gap-2 mb-4">
                 <input type="text" id="new-proj-name" placeholder="Name..." class="flex-1 border border-slate-300 rounded-lg p-2 text-sm">
                 <button onclick="window.app.createProject()" class="bg-blue-600 text-white rounded-lg px-4 font-bold text-sm">Add</button>
             </div>
-            
             <button onclick="window.app.toggleSettings()" class="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-200">Close</button>
         </div>
     </div>
@@ -396,11 +406,9 @@
             </div>
             <button onclick="document.getElementById('detail-modal').classList.add('hidden')" class="bg-white/10 p-2 rounded-full backdrop-blur-sm"><i data-lucide="x" class="w-6 h-6"></i></button>
         </div>
-        
         <div class="flex-1 flex items-center justify-center overflow-hidden">
             <img id="det-img" class="max-w-full max-h-full object-contain">
         </div>
-        
         <div class="bg-slate-900 text-slate-300 p-5 pb-safe space-y-3">
             <p id="det-caption" class="text-white font-bold text-base"></p>
             <div class="grid grid-cols-2 gap-4 text-xs font-mono opacity-80">
@@ -418,10 +426,10 @@
     <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-5 py-2.5 rounded-full shadow-xl text-sm font-bold opacity-0 transition-opacity duration-300 pointer-events-none z-[70] flex items-center gap-2">
         <i data-lucide="check-circle" class="w-4 h-4 text-green-400"></i> <span id="toast-msg">Action</span>
     </div>
-    
-    <div id="loader" class="fixed inset-0 z-[80] bg-white/90 hidden flex flex-col items-center justify-center fade-in">
+    <div id="loader" class="fixed inset-0 z-[80] bg-white/90 hidden flex flex-col items-center justify-center fade-in" onclick="window.app && window.app._loaderTapDismiss()">
         <div class="w-12 h-12 border-4 border-slate-200 border-t-blue-600 rounded-full animate-spin mb-3"></div>
         <div id="loader-text" class="text-slate-600 font-bold animate-pulse">Processing...</div>
+        <div id="loader-tap-hint" class="text-slate-300 text-[10px] mt-4 hidden">Tap to dismiss</div>
     </div>
 
     <!-- FIREBASE & APP LOGIC -->
@@ -431,9 +439,15 @@
         import { getFirestore, collection, doc, setDoc, query, where, onSnapshot, deleteDoc, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL, listAll, deleteObject, getMetadata } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js";
 
-        // CONFIG
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'field-notes-v2';
         const fbConfig = (typeof __firebase_config !== 'undefined') ? JSON.parse(__firebase_config) : { apiKey: "AIzaSyD2jsJTjSlWf3SINS3u4fz3Lu5IYbI6N94", authDomain: "field-cam.firebaseapp.com", projectId: "field-cam", storageBucket: "field-cam.firebasestorage.app", messagingSenderId: "952385597528", appId: "1:952385597528:web:3a5b2011a4cc2b29e41a2d" };
+
+        // ── UPLOAD TIMEOUT (seconds) ─────────────────────────────────────────
+        // Stored in localStorage so user preference persists across sessions
+        const TIMEOUT_KEY = 'fp_upload_timeout_ms';
+        const DEFAULT_TIMEOUT_MS = 8000;
+
+        const getTimeoutMs = () => parseInt(localStorage.getItem(TIMEOUT_KEY) || DEFAULT_TIMEOUT_MS);
 
         // APP STATE
         const state = {
@@ -444,27 +458,92 @@
             filter: 'all', path: `artifacts/${appId}/public/data/files`,
             items: [], seriesMode: false, queue: [],
             pendingBlob: null, pendingId: null, editMode: false, pendingType: 'photo',
-            tempMeta: null, // Holds EXIF data temporarily
-            online: navigator.onLine, // Connection state
-            forcedOffline: false, // User override
-            batchMode: false, // Flag for batch upload workflow
-            excludedReportItems: new Set(), // IDs of items to exclude from report
-            editingNoteId: null // ID of the note currently being edited
+            tempMeta: null,
+            lastCaption: { title: '', desc: '' }, // persists last-used title/desc for quick re-use
+            online: navigator.onLine,
+            forcedOffline: false,
+            batchMode: false,
+            excludedReportItems: new Set(),
+            editingNoteId: null
         };
 
-        // UTILS
         const $ = (id) => document.getElementById(id);
         const showToast = (msg) => {
             $('toast-msg').innerText = msg; $('toast').classList.remove('opacity-0');
             setTimeout(() => $('toast').classList.add('opacity-0'), 2500);
         };
+        let _loaderHintTimer = null;
         const toggleLoader = (show, txt="Loading...") => {
-            if(show) { $('loader-text').innerText = txt; $('loader').classList.remove('hidden'); }
-            else $('loader').classList.add('hidden');
+            if(show) {
+                $('loader-text').innerText = txt;
+                $('loader').classList.remove('hidden');
+                $('loader-tap-hint').classList.add('hidden');
+                // Show "Tap to dismiss" hint after 12s as an escape hatch
+                clearTimeout(_loaderHintTimer);
+                _loaderHintTimer = setTimeout(() => {
+                    if(!$('loader').classList.contains('hidden')) {
+                        $('loader-tap-hint').classList.remove('hidden');
+                    }
+                }, 12000);
+            } else {
+                clearTimeout(_loaderHintTimer);
+                $('loader').classList.add('hidden');
+                $('loader-tap-hint').classList.add('hidden');
+            }
         };
         const formatDate = (ts) => new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
-        // INDEXED DB HELPER FOR OFFLINE STORAGE
+        // ── TIMEOUT COUNTDOWN UI ────────────────────────────────────────────
+        let countdownInterval = null;
+
+        function showTimeoutBar(durationMs) {
+            const bar = $('upload-timeout-bar');
+            const fill = $('upload-timeout-fill');
+            const label = $('upload-timeout-label');
+            const secsEl = $('upload-timeout-secs');
+
+            bar.style.display = 'block';
+            label.style.display = 'block';
+
+            // Animate the fill shrinking over durationMs
+            fill.style.transition = 'none';
+            fill.style.transform = 'scaleX(1)';
+            // Force reflow
+            fill.offsetHeight;
+            fill.style.transition = `transform ${durationMs}ms linear`;
+            fill.style.transform = 'scaleX(0)';
+
+            let remaining = Math.ceil(durationMs / 1000);
+            secsEl.innerText = remaining;
+            clearInterval(countdownInterval);
+            countdownInterval = setInterval(() => {
+                remaining--;
+                secsEl.innerText = Math.max(0, remaining);
+                if (remaining <= 0) clearInterval(countdownInterval);
+            }, 1000);
+        }
+
+        function hideTimeoutBar() {
+            clearInterval(countdownInterval);
+            $('upload-timeout-bar').style.display = 'none';
+            $('upload-timeout-label').style.display = 'none';
+        }
+
+        // ── CORE TIMEOUT WRAPPER ────────────────────────────────────────────
+        /**
+         * Races a promise against a timeout.
+         * If the promise doesn't resolve within `ms`, rejects with a timeout error.
+         * Shows an animated countdown bar while waiting.
+         */
+        function withUploadTimeout(promise, ms) {
+            showTimeoutBar(ms);
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('UPLOAD_TIMEOUT')), ms)
+            );
+            return Promise.race([promise, timeout]).finally(() => hideTimeoutBar());
+        }
+
+        // ── OFFLINE MANAGER (IndexedDB) ─────────────────────────────────────
         class OfflineManager {
             constructor() {
                 this.dbName = 'FieldNotesDB';
@@ -472,114 +551,109 @@
                 this.db = null;
                 this.initDB();
             }
-
             initDB() {
                 const req = indexedDB.open(this.dbName, 1);
                 req.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    if(!db.objectStoreNames.contains(this.storeName)) {
+                    if(!db.objectStoreNames.contains(this.storeName))
                         db.createObjectStore(this.storeName, { keyPath: 'id' });
-                    }
                 };
-                req.onsuccess = (e) => {
-                    this.db = e.target.result;
-                    this.updateOutboxCount();
-                };
+                req.onsuccess = (e) => { this.db = e.target.result; this.updateOutboxCount(); };
             }
-
             async addToOutbox(item) {
+                // Wait up to 3s for IndexedDB to be ready before giving up
+                if (!this.db) {
+                    await new Promise((resolve) => {
+                        const check = setInterval(() => { if (this.db) { clearInterval(check); resolve(); } }, 100);
+                        setTimeout(() => { clearInterval(check); resolve(); }, 3000);
+                    });
+                }
+                if (!this.db) { console.error("IndexedDB unavailable — item lost", item.id); return; }
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction([this.storeName], 'readwrite');
-                    const store = tx.objectStore(this.storeName);
-                    store.put(item);
-                    tx.oncomplete = () => {
-                        this.updateOutboxCount();
-                        resolve();
-                    };
+                    tx.objectStore(this.storeName).put(item);
+                    tx.oncomplete = () => { this.updateOutboxCount(); resolve(); };
                     tx.onerror = (e) => reject(e);
                 });
             }
-
             async getOutbox() {
                 return new Promise((resolve) => {
                     if(!this.db) return resolve([]);
                     const tx = this.db.transaction([this.storeName], 'readonly');
-                    const store = tx.objectStore(this.storeName);
-                    const req = store.getAll();
+                    const req = tx.objectStore(this.storeName).getAll();
                     req.onsuccess = () => resolve(req.result);
                 });
             }
-
             async removeFromOutbox(id) {
                 return new Promise((resolve) => {
                     const tx = this.db.transaction([this.storeName], 'readwrite');
-                    const store = tx.objectStore(this.storeName);
-                    store.delete(id);
-                    tx.oncomplete = () => {
-                        this.updateOutboxCount();
-                        resolve();
-                    };
+                    tx.objectStore(this.storeName).delete(id);
+                    tx.oncomplete = () => { this.updateOutboxCount(); resolve(); };
                 });
             }
-
             async updateOutboxCount() {
                 const items = await this.getOutbox();
                 const badge = $('outbox-badge');
-                if(items.length > 0) {
-                    badge.classList.remove('hidden');
-                    $('outbox-count').innerText = items.length;
-                } else {
-                    badge.classList.add('hidden');
-                }
+                if(items.length > 0) { badge.classList.remove('hidden'); $('outbox-count').innerText = items.length; }
+                else badge.classList.add('hidden');
             }
         }
 
-        // --- CORE APPLICATION ---
+        // ── FIELD APP ───────────────────────────────────────────────────────
         class FieldApp {
             constructor() {
-                this.map = null;
-                this.markers = null;
-                this.wbCtx = null;
-                this.bgImage = null; // Store background image for clearing sketch
-                this.undoStack = []; // Stack for undo feature
-                this.isEraser = false; // Eraser mode toggle
-                this.lastColor = '#ef4444'; // Default color
+                this.map = null; this.markers = null;
+                this.wbCtx = null; this.bgImage = null;
+                this.undoStack = []; this.undoLimit = 15; // cap memory use on mobile
+                this.isEraser = false; this.lastColor = '#ef4444';
+                this.unsubscribeData = null; // holds active Firestore listener so we can clean up on project switch
                 this.offlineMgr = new OfflineManager();
                 this.initFirebase();
                 this.initSensors();
                 this.bindEvents();
                 lucide.createIcons();
-                
-                // Connection Listeners
                 window.addEventListener('online', () => this.updateConnectionStatus(true));
                 window.addEventListener('offline', () => this.updateConnectionStatus(false));
                 this.updateConnectionStatus(navigator.onLine);
             }
 
+            // ── NEW: User-configurable timeout ──────────────────────────────
+            setUploadTimeout(secs) {
+                const ms = Math.max(3000, Math.min(30000, parseInt(secs) * 1000));
+                localStorage.setItem(TIMEOUT_KEY, ms);
+                showToast(`Upload timeout set to ${ms/1000}s`);
+            }
+
+            // Safety escape hatch — dismiss stuck loader on tap (shown after 12s)
+            _loaderTapDismiss() {
+                if(!$('loader-tap-hint').classList.contains('hidden')) {
+                    toggleLoader(false);
+                    showToast("Dismissed — check Log tab for status");
+                }
+            }
+
             initSensors() {
-                // GPS
                 if(navigator.geolocation) {
                     navigator.geolocation.watchPosition(p => {
                         state.location = { lat: p.coords.latitude, lng: p.coords.longitude };
                         $('gps-val').innerText = `${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
                         $('gps-val').className = "text-xs font-mono font-bold text-green-600 truncate w-full";
-                        if(!state.weather.temp) this.fetchWeather(p.coords.latitude, p.coords.longitude);
-                    }, e => {
+                        // Fetch weather on first fix, then refresh every 30 minutes
+                        const now = Date.now();
+                        if(!state.weather.lastFetch || (now - state.weather.lastFetch) > 30 * 60 * 1000) {
+                            this.fetchWeather(p.coords.latitude, p.coords.longitude);
+                        }
+                    }, () => {
                         $('gps-val').innerText = "No Signal";
                         $('gps-val').className = "text-xs font-mono font-bold text-red-500 truncate w-full";
                     }, { enableHighAccuracy: true });
                 }
-
-                // Compass (Requires explicit permission on iOS)
-                // We listen for events, but UI triggers requestCompass()
                 window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
             }
-            
+
             toggleForceOffline() {
                 state.forcedOffline = !state.forcedOffline;
                 this.updateConnectionStatus();
-                
-                // Update Button Visual
                 const btn = $('offline-toggle-btn');
                 if(state.forcedOffline) {
                     btn.innerText = "Offline (Forced)";
@@ -588,21 +662,17 @@
                     btn.innerText = "Online";
                     btn.className = "text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition";
                 }
-                
                 showToast(state.forcedOffline ? "Offline Mode Enabled" : "Back Online");
             }
 
             updateConnectionStatus() {
-                // Effective status logic
-                const networkOnline = navigator.onLine;
-                const effectiveOnline = networkOnline && !state.forcedOffline;
+                const effectiveOnline = navigator.onLine && !state.forcedOffline;
                 state.online = effectiveOnline;
-
                 $('status-indicator').className = `w-3 h-3 rounded-full ring-2 ring-white shadow-sm transition-colors duration-300 ${effectiveOnline ? 'bg-green-500' : 'bg-orange-500'}`;
-                
                 if(effectiveOnline) this.syncOutbox();
             }
 
+            // ── SYNC OUTBOX with timeout ────────────────────────────────────
             async syncOutbox() {
                 if(!state.online) return showToast("Still Offline");
                 const items = await this.offlineMgr.getOutbox();
@@ -611,26 +681,36 @@
                 toggleLoader(true, `Syncing ${items.length} items...`);
                 let successCount = 0;
 
-                for(const item of items) {
-                    try {
-                        // Restore blob from DB (it's stored as is)
-                        // If it's a note (no blob), skip upload logic
-                        if(item.type === 'note') {
-                            await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), item.meta);
-                        } else {
-                            // Ensure meta.type is present, default to 'photo' if missing in older pending items
-                            item.meta.type = item.type || 'photo'; 
-                            await this.uploadWorkflow(item.blob, item.meta, item.doOverlay);
+                try {
+                    for(const item of items) {
+                        try {
+                            if(item.type === 'note') {
+                                await withUploadTimeout(
+                                    setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), item.meta),
+                                    getTimeoutMs()
+                                );
+                            } else {
+                                item.meta.type = item.type || 'photo';
+                                await withUploadTimeout(
+                                    this.uploadWorkflow(item.blob, item.meta, item.doOverlay),
+                                    getTimeoutMs()
+                                );
+                            }
+                            await this.offlineMgr.removeFromOutbox(item.id);
+                            successCount++;
+                        } catch(e) {
+                            if(e.message === 'UPLOAD_TIMEOUT') {
+                                console.warn("Sync timed out for item", item.id, "— will retry later");
+                            } else {
+                                console.error("Sync failed for item", item.id, e);
+                            }
                         }
-                        await this.offlineMgr.removeFromOutbox(item.id);
-                        successCount++;
-                    } catch(e) {
-                        console.error("Sync failed for item", item.id, e);
                     }
+                    if(successCount > 0) showToast(`Synced ${successCount} items`);
+                    else if(items.length > 0) showToast("Connection too slow — will retry later");
+                } finally {
+                    toggleLoader(false);
                 }
-                
-                toggleLoader(false);
-                if(successCount > 0) showToast(`Synced ${successCount} items`);
             }
 
             async initFirebase() {
@@ -638,55 +718,39 @@
                 state.auth = getAuth(app);
                 state.db = getFirestore(app);
                 state.storage = getStorage(app);
-
                 onAuthStateChanged(state.auth, (user) => {
                     state.user = user;
-                    // Status logic moved to updateConnectionStatus for better control
                     if(user) {
                         this.loadData();
                         this.refreshFiles();
-                        this.syncProjectList(); // Check storage & DB for projects
-                        
-                        // NEW: Listen to shared project list
+                        this.syncProjectList();
                         this.listenToSharedProjects();
                     }
                 });
-
-                // Auth Logic
                 const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
                 try {
                     if (token) await signInWithCustomToken(state.auth, token);
                     else await signInAnonymously(state.auth);
                 } catch(e) { console.error("Auth Fail", e); }
-
                 this.updateProjectUI();
             }
-            
-            // NEW: Shared Project List Listener
+
             listenToSharedProjects() {
                 const q = query(collection(state.db, `artifacts/${appId}/public/data/projects`), orderBy('name'));
                 onSnapshot(q, (snap) => {
                     const newSet = new Set();
-                    snap.forEach(d => {
-                        newSet.add(d.data().name);
-                    });
-                    
-                    // Updates local state
+                    snap.forEach(d => newSet.add(d.data().name));
                     state.projects = newSet;
                     localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
-                    
-                    // Safety: If current project is gone, switch to another
                     if (!state.projects.has(state.project) && state.projects.size > 0) {
                         const next = Array.from(state.projects)[0];
                         this.switchProject(next);
                         showToast(`Project deleted remotely. Switched to ${next}`);
                     }
-                    
-                    this.updateProjectUI(); 
+                    this.updateProjectUI();
                 });
             }
 
-            // --- SENSORS ---
             async requestCompass() {
                 if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                     try {
@@ -694,9 +758,7 @@
                         if (perm === 'granted') showToast("Compass Active");
                         else showToast("Permission Denied");
                     } catch (e) { alert(e); }
-                } else {
-                    showToast("Compass Active");
-                }
+                } else { showToast("Compass Active"); }
             }
 
             handleOrientation(e) {
@@ -716,16 +778,15 @@
                         const code = d.current_weather.weathercode;
                         const temp = d.current_weather.temperature;
                         const desc = code === 0 ? "Clear" : code < 4 ? "Cloudy" : code < 50 ? "Fog" : "Precip";
-                        state.weather = { temp: `${temp}°F`, desc };
+                        state.weather = { temp: `${temp}°F`, desc, lastFetch: Date.now() };
                         $('wx-val').innerText = `${desc}, ${temp}°F`;
                     }
                 } catch(e) {}
             }
 
-            // --- UI ACTIONS ---
             switchTab(id) {
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-                $( `tab-${id}` ).classList.add('active');
+                $(`tab-${id}`).classList.add('active');
                 document.querySelectorAll('.nav-item').forEach(el => {
                     el.classList.remove('text-blue-600', 'active');
                     el.classList.add('text-slate-400');
@@ -733,7 +794,6 @@
                 const nav = $(`nav-${id}`);
                 nav.classList.add('text-blue-600', 'active');
                 nav.classList.remove('text-slate-400');
-
                 if(id === 'map') {
                     setTimeout(() => {
                         if(!this.map) this.initMap();
@@ -743,19 +803,21 @@
                 }
             }
 
+            closeSettings() {
+                $('settings-modal').classList.add('hidden');
+            }
+
             toggleSettings() {
                 const m = $('settings-modal');
                 m.classList.toggle('hidden');
                 if(!m.classList.contains('hidden')) {
-                    this.updateProjectUI(); // Ensure dropdown is fresh
+                    this.updateProjectUI();
+                    $('timeout-setting').value = Math.round(getTimeoutMs() / 1000);
                 }
             }
 
             updateProjectUI() {
-                // Update Header
                 $('header-project-name').innerText = state.project;
-                
-                // Update Settings Dropdown
                 const sel = $('project-select');
                 if(sel) {
                     sel.innerHTML = '';
@@ -766,80 +828,41 @@
                     });
                 }
             }
-            
-            // --- STORAGE CALCULATION ---
+
             async calculateStorageUsage() {
                 if(!state.online) return showToast("Must be online to calculate");
-                
                 toggleLoader(true, "Calculating Storage...");
-                const bar = $('storage-bar');
-                const text = $('storage-text');
-                const limit = 5 * 1024 * 1024 * 1024; // 5 GB
-                
+                const limit = 5 * 1024 * 1024 * 1024;
                 try {
-                    // Recursive function to sum file sizes
                     const getFolderSize = async (folderRef) => {
                         let total = 0;
                         const res = await listAll(folderRef);
-                        
-                        // Process files
-                        const filePromises = res.items.map(async (item) => {
-                            try {
-                                const meta = await getMetadata(item);
-                                return meta.size;
-                            } catch(e) { return 0; }
-                        });
-                        
-                        const fileSizes = await Promise.all(filePromises);
+                        const fileSizes = await Promise.all(res.items.map(async (item) => {
+                            try { const meta = await getMetadata(item); return meta.size; } catch(e) { return 0; }
+                        }));
                         total += fileSizes.reduce((a, b) => a + b, 0);
-                        
-                        // Process subfolders
-                        for (const prefix of res.prefixes) {
-                            total += await getFolderSize(prefix);
-                        }
-                        
+                        for (const prefix of res.prefixes) total += await getFolderSize(prefix);
                         return total;
                     };
-                    
-                    const rootRef = ref(state.storage, `artifacts/${appId}/public/data/files`);
-                    const totalBytes = await getFolderSize(rootRef);
-                    
+                    const totalBytes = await getFolderSize(ref(state.storage, `artifacts/${appId}/public/data/files`));
                     const mb = (totalBytes / (1024 * 1024)).toFixed(1);
                     const percent = Math.min((totalBytes / limit) * 100, 100);
-                    
-                    text.innerText = `${mb} MB / 5 GB`;
-                    bar.style.width = `${percent}%`;
-                    
-                    // Visual color coding
-                    bar.className = `h-2 rounded-full transition-all duration-500 ${percent > 90 ? 'bg-red-500' : (percent > 70 ? 'bg-orange-500' : 'bg-blue-600')}`;
-                    
-                } catch(e) {
-                    console.error("Storage calc error", e);
-                    showToast("Calc Error");
-                } finally {
-                    toggleLoader(false);
-                }
+                    $('storage-text').innerText = `${mb} MB / 5 GB`;
+                    $('storage-bar').style.width = `${percent}%`;
+                    $('storage-bar').className = `h-2 rounded-full transition-all duration-500 ${percent > 90 ? 'bg-red-500' : (percent > 70 ? 'bg-orange-500' : 'bg-blue-600')}`;
+                } catch(e) { showToast("Calc Error"); }
+                finally { toggleLoader(false); }
             }
 
-            // --- PROJECT LOGIC ---
             async createProject(nameOverride = null) {
                 let n = nameOverride;
                 if (!n) n = $('new-proj-name').value.trim().replace(/[^a-zA-Z0-9-_]/g, '');
-                
                 if(n) {
                     state.projects.add(n);
                     localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
-                    
-                    // SAVE TO FIRESTORE SHARED LIST
                     try {
-                        const projRef = doc(state.db, `artifacts/${appId}/public/data/projects`, n);
-                        await setDoc(projRef, {
-                            name: n,
-                            createdAt: Date.now(),
-                            createdBy: state.user.uid
-                        });
+                        await setDoc(doc(state.db, `artifacts/${appId}/public/data/projects`, n), { name: n, createdAt: Date.now(), createdBy: state.user.uid });
                     } catch(e) { console.warn("Could not sync project list to cloud", e); }
-
                     this.switchProject(n);
                     if(!nameOverride) $('new-proj-name').value = '';
                 }
@@ -849,75 +872,51 @@
                 state.project = p;
                 localStorage.setItem('fp_project', p);
                 this.updateProjectUI();
-                this.loadData(); // Reload data for new project
-                this.toggleSettings();
+                this.loadData();
+                this.closeSettings(); // explicit close — avoids accidentally opening modal when called programmatically
                 showToast(`Switched to ${p}`);
             }
 
             async deleteCurrentProject() {
                 const p = state.project;
                 if(!confirm(`⚠️ DANGER ZONE ⚠️\n\nAre you sure you want to delete project: "${p}"?\n\nThis will PERMANENTLY DELETE all photos, notes, and files associated with this project.\n\nThis action cannot be undone.`)) return;
-                
                 const confirmName = prompt(`To confirm deletion, please type the project name "${p}" below:`);
                 if(confirmName !== p) return alert("Project name did not match. Deletion cancelled.");
-
                 toggleLoader(true, `Deleting ${p}...`);
-                this.toggleSettings(); // Close modal
-
+                this.toggleSettings();
                 try {
-                    // 1. Delete Firestore Documents (Photos)
                     const q = query(collection(state.db, `artifacts/${appId}/public/data/images`), where("projectId", "==", p));
                     const snap = await getDocs(q);
-                    const docDeletes = snap.docs.map(d => deleteDoc(d.ref));
-                    await Promise.all(docDeletes);
-
-                    // 2. Delete Project Metadata Doc
+                    await Promise.all(snap.docs.map(d => deleteDoc(d.ref)));
                     await deleteDoc(doc(state.db, `artifacts/${appId}/public/data/projects`, p));
-
-                    // 3. Delete Storage Files
-                    const folderRef = ref(state.storage, `artifacts/${appId}/public/data/files/${p}`);
                     try {
-                        const list = await listAll(folderRef);
-                        const fileDeletes = list.items.map(item => deleteObject(item));
-                        await Promise.all(fileDeletes);
-                    } catch(e) { console.warn("Storage folder clean issue", e); }
-
-                    // 4. Update Local State
+                        const list = await listAll(ref(state.storage, `artifacts/${appId}/public/data/files/${p}`));
+                        await Promise.all(list.items.map(item => deleteObject(item)));
+                    } catch(e) {}
                     state.projects.delete(p);
                     localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
-
-                    // 5. Switch to another project or create default
-                    if(state.projects.size > 0) {
-                        const next = Array.from(state.projects)[0];
-                        this.switchProject(next);
-                    } else {
-                        this.createProject("Project-Alpha");
-                    }
-                    
+                    if(state.projects.size > 0) this.switchProject(Array.from(state.projects)[0]);
+                    else this.createProject("Project-Alpha");
                     showToast("Project Deleted");
-
-                } catch(e) {
-                    console.error(e);
-                    alert("Delete failed: " + e.message);
-                } finally {
-                    toggleLoader(false);
-                }
+                } catch(e) { alert("Delete failed: " + e.message); }
+                finally { toggleLoader(false); }
             }
 
             async syncProjectList() {
-                // Legacy: Check storage folders too (backwards compatibility)
+                // Adopt any existing Storage folders as projects without triggering UI side-effects
                 try {
                     const res = await listAll(ref(state.storage, `artifacts/${appId}/public/data/files`));
+                    let changed = false;
                     res.prefixes.forEach(p => {
-                        if(!state.projects.has(p.name)) {
-                             // Adopt existing folders into new system
-                             this.createProject(p.name); 
-                        }
+                        if(!state.projects.has(p.name)) { state.projects.add(p.name); changed = true; }
                     });
+                    if (changed) {
+                        localStorage.setItem('fp_projects', JSON.stringify(Array.from(state.projects)));
+                        this.updateProjectUI();
+                    }
                 } catch(e) {}
             }
 
-            // --- CAMERA & CAPTURE ---
             bindEvents() {
                 $('camera-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], false));
                 $('gallery-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], true));
@@ -925,115 +924,80 @@
 
             handleFileSelect(file, isGallery, type = 'photo') {
                 if(!file) return;
-                
-                // HEIC Conversion Logic
-                // Added SAFETY CHECK for file.name before accessing it
                 if (file.type === "image/heic" || (file.name && file.name.toLowerCase().endsWith('.heic'))) {
                     toggleLoader(true, "Converting HEIC...");
                     heic2any({ blob: file, toType: "image/jpeg", quality: 0.9 }).then(jpgBlob => {
                         toggleLoader(false);
-                        // Re-assign name property to blob for consistency - FIXED to create proper File
                         const name = (file.name ? file.name.replace(/\.[^/.]+$/, "") : "image") + ".jpg";
                         const newFile = new File([jpgBlob], name, { type: "image/jpeg" });
                         this.processBlob(newFile, true, type);
-                    }).catch(e => {
-                        toggleLoader(false);
-                        alert("HEIC conversion failed. Please try a different photo.");
-                        console.error(e);
-                    });
+                    }).catch(e => { toggleLoader(false); alert("HEIC conversion failed."); console.error(e); });
                     return;
                 }
-
                 this.processBlob(file, isGallery, type);
             }
 
             processBlob(file, isGallery, type = 'photo') {
                 state.pendingBlob = file;
                 state.pendingId = Date.now().toString();
-                state.pendingType = type; // Store type
+                state.pendingType = type;
                 state.editMode = false;
-                $('camera-input').value = ''; // Reset
-                $('gallery-input').value = ''; // Reset
-
+                $('camera-input').value = '';
+                $('gallery-input').value = '';
                 if (isGallery) {
-                    // Extract Metadata from Gallery Image
                     this.extractExif(file).then(exifData => {
                         state.tempMeta = exifData;
-                        this.openCaptionModal(file, false, true); // True for "isGallery"
+                        this.openCaptionModal(file, false, true);
                     });
                 } else {
-                    // Live Camera - Use live sensors
                     state.tempMeta = null;
-                    if(state.seriesMode) {
-                        this.addToQueue(state.pendingBlob, state.pendingId);
-                    } else {
-                        this.openCaptionModal(file);
-                    }
+                    if(state.seriesMode) this.addToQueue(state.pendingBlob, state.pendingId);
+                    else this.openCaptionModal(file);
                 }
             }
-            
+
             extractExif(file) {
                 return new Promise((resolve) => {
                     try {
                         EXIF.getData(file, function() {
                             const allTags = EXIF.getAllTags(this);
-                            
-                            // Parse Date
                             let timestamp = Date.now();
                             if (allTags.DateTimeOriginal) {
                                 try {
-                                    // Format: "2023:10:25 14:30:00" -> "2023/10/25 14:30:00"
                                     const str = allTags.DateTimeOriginal.split(' ');
-                                    const dateParts = str[0].split(':');
-                                    const timeParts = str[1].split(':');
-                                    const date = new Date(dateParts[0], dateParts[1]-1, dateParts[2], timeParts[0], timeParts[1], timeParts[2]);
+                                    const d = str[0].split(':');
+                                    const t = str[1].split(':');
+                                    const date = new Date(d[0], d[1]-1, d[2], t[0], t[1], t[2]);
                                     if(!isNaN(date.getTime())) timestamp = date.getTime();
-                                } catch(e) { console.warn("Date parse error", e); }
-                            } else if (file.lastModified) {
-                                 timestamp = file.lastModified;
-                            }
-    
-                            // Parse GPS
+                                } catch(e) {}
+                            } else if (file.lastModified) { timestamp = file.lastModified; }
                             let lat = null, lng = null;
                             if (allTags.GPSLatitude && allTags.GPSLongitude) {
-                                // Helper to convert array [deg, min, sec] to decimal
                                 const toDecimal = (gps, ref) => {
                                     if(!gps || gps.length < 3) return 0;
-                                    let d = gps[0].numerator / gps[0].denominator;
-                                    let m = gps[1].numerator / gps[1].denominator;
-                                    let s = gps[2].numerator / gps[2].denominator;
-                                    let res = d + (m/60) + (s/3600);
-                                    if (ref === 'S' || ref === 'W') res = res * -1;
+                                    let res = gps[0].numerator/gps[0].denominator + (gps[1].numerator/gps[1].denominator)/60 + (gps[2].numerator/gps[2].denominator)/3600;
+                                    if (ref === 'S' || ref === 'W') res *= -1;
                                     return res;
                                 };
                                 lat = toDecimal(allTags.GPSLatitude, allTags.GPSLatitudeRef);
                                 lng = toDecimal(allTags.GPSLongitude, allTags.GPSLongitudeRef);
                             }
-                            
                             resolve({ timestamp, lat, lng });
                         });
-                    } catch(e) {
-                        console.error("EXIF Error", e);
-                        resolve({ timestamp: Date.now(), lat: null, lng: null });
-                    }
+                    } catch(e) { resolve({ timestamp: Date.now(), lat: null, lng: null }); }
                 });
             }
 
             toggleSeriesMode() {
                 state.seriesMode = !state.seriesMode;
-                const btn = $('series-btn');
-                const txt = $('series-text');
-                
+                const btn = $('series-btn'); const txt = $('series-text');
                 if(state.seriesMode) {
-                    state.queue = []; // Clear old queue
+                    state.queue = [];
                     btn.classList.remove('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
                     btn.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
                     txt.innerText = "Active (0)";
                 } else {
-                    if(state.queue.length > 0) {
-                        // NEW LOGIC: Open modal instead of processing queue immediately
-                        this.openBatchCaptionModal();
-                    }
+                    if(state.queue.length > 0) this.openBatchCaptionModal();
                     btn.classList.add('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
                     btn.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
                     txt.innerText = "Series Mode";
@@ -1041,315 +1005,230 @@
             }
 
             addToQueue(blob, id) {
-                // If offline, save directly to IndexedDB outbox
-                if(!state.online) {
-                    this.offlineMgr.addToOutbox({
-                        id, blob,
-                        meta: this.createMeta(id, Date.now()),
-                        doOverlay: $('burn-toggle').checked,
-                        type: 'photo'
-                    });
-                    showToast("Saved to Outbox (Offline)");
-                    return;
-                }
-
-                // If Online, use normal queue flow
+                // Always queue — caption modal shown when series mode ends.
+                // confirmUpload() handles offline vs online saving after the modal.
                 state.queue.push({ blob, id, timestamp: Date.now() });
                 $('series-text').innerText = `Active (${state.queue.length})`;
-                showToast(`Photo ${state.queue.length} Queued`);
+                showToast(`Photo ${state.queue.length} queued`);
             }
-            
-            // Replaced processQueue with openBatchCaptionModal logic
-            
+
             openBatchCaptionModal() {
                 const count = state.queue.length;
                 if (count === 0) return;
-                
                 const firstItem = state.queue[0];
                 let url;
                 try {
+                    const prev = $('modal-img-preview').src;
+                    if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
                     url = URL.createObjectURL(firstItem.blob);
                 } catch(e) { url = ''; }
-                
-                $('modal-img-preview').src = url; 
+                $('modal-img-preview').src = url;
                 $('cap-title').value = '';
                 $('cap-desc').value = '';
                 $('modal-title-text').innerText = `Batch Upload (${count} Photos)`;
-                $('btn-save-upload').innerText = `Upload ${count} Photos`; 
-                
+                $('btn-save-upload').innerText = `Upload ${count} Photos`;
                 state.editMode = false;
-                state.batchMode = true; 
+                state.batchMode = true;
+                // Show Use Last if available
+                const useLastBtn = $('use-last-btn');
+                if (state.lastCaption.title || state.lastCaption.desc) {
+                    useLastBtn.classList.remove('hidden');
+                    useLastBtn.title = `"${state.lastCaption.title || state.lastCaption.desc}"`;
+                } else {
+                    useLastBtn.classList.add('hidden');
+                }
                 $('modal-caption').classList.remove('hidden');
+                lucide.createIcons();
             }
 
-            // --- CAPTION MODAL & EDITING ---
+            useLastCaption() {
+                if(!state.lastCaption.title && !state.lastCaption.desc) return;
+                $('cap-title').value = state.lastCaption.title;
+                $('cap-desc').value = state.lastCaption.desc;
+                $('cap-title').focus();
+                showToast('Last caption applied');
+            }
+
             openCaptionModal(blobOrUrl, isEdit = false, isGallery = false) {
                 let url;
                 try {
                     if (typeof blobOrUrl === 'string') {
                         url = blobOrUrl;
-                    } else if (blobOrUrl instanceof Blob) {
-                        url = URL.createObjectURL(blobOrUrl);
                     } else {
-                        throw new Error("Invalid image source");
+                        // Revoke any previous object URL to avoid memory leak
+                        const prev = $('modal-img-preview').src;
+                        if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                        url = URL.createObjectURL(blobOrUrl);
                     }
-                } catch(e) {
-                    console.error("Preview Error:", e);
-                    showToast("Error loading image preview");
-                    return;
-                }
-
+                } catch(e) { showToast("Error loading image preview"); return; }
                 $('modal-img-preview').src = url;
                 $('cap-title').value = isEdit ? (state.currentItem.title || '') : '';
                 $('cap-desc').value = isEdit ? (state.currentItem.detailedDesc || '') : '';
                 $('modal-title-text').innerText = isEdit ? "Edit Entry" : (isGallery ? "Import Details" : "New Photo Details");
-                
-                // Show badge if using EXIF
                 const badge = $('exif-badge');
-                if (isGallery && state.tempMeta && state.tempMeta.lat) {
-                    badge.classList.remove('hidden');
+                (isGallery && state.tempMeta && state.tempMeta.lat) ? badge.classList.remove('hidden') : badge.classList.add('hidden');
+
+                // Show "Use Last" button only on new entries when there's a previous caption to reuse
+                const useLastBtn = $('use-last-btn');
+                if (!isEdit && (state.lastCaption.title || state.lastCaption.desc)) {
+                    useLastBtn.classList.remove('hidden');
+                    useLastBtn.title = `"${state.lastCaption.title || state.lastCaption.desc}"`;
                 } else {
-                    badge.classList.add('hidden');
+                    useLastBtn.classList.add('hidden');
                 }
 
                 state.editMode = isEdit;
                 $('modal-caption').classList.remove('hidden');
+                lucide.createIcons();
             }
 
             closeCaptionModal() {
                 $('modal-caption').classList.add('hidden');
-                state.pendingBlob = null;
-                state.tempMeta = null;
-                state.batchMode = false; // Reset
-                state.pendingType = 'photo'; // Reset to default
-                $('btn-save-upload').innerText = "Save"; // Reset button text
+                state.pendingBlob = null; state.tempMeta = null;
+                state.batchMode = false; state.pendingType = 'photo';
+                $('btn-save-upload').innerText = "Save";
             }
 
             createMeta(id, ts, defaultCaption = "", overrideNum = null) {
-                 const title = $('cap-title').value.trim();
-                 const desc = $('cap-desc').value.trim();
-                 const cap = (title && desc) ? `${title} - ${desc}` : (desc || title || defaultCaption || "No Caption");
-                 
-                 // Get photo number
-                 let thisNum;
-                 if (overrideNum !== null) {
-                     thisNum = overrideNum;
-                 } else {
-                     const existing = state.items.filter(i => i.type === 'photo');
-                     const maxNum = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
-                     thisNum = maxNum + 1;
-                 }
-
-                 // Use EXIF override if available, otherwise live sensors
-                 let finalTs = ts;
-                 let finalLat = state.location?.lat || null;
-                 let finalLng = state.location?.lng || null;
-
-                 if (state.tempMeta) {
-                     finalTs = state.tempMeta.timestamp || ts;
-                     // Only override location if EXIF actually had it. 
-                     // If EXIF has no location (e.g. screenshot), fallback to null (don't fake it with current location)
-                     if (state.tempMeta.lat && state.tempMeta.lng) {
-                         finalLat = state.tempMeta.lat;
-                         finalLng = state.tempMeta.lng;
-                     } else {
-                         finalLat = null;
-                         finalLng = null;
-                     }
-                 }
-
-                 return {
-                     id: id,
-                     projectId: state.project,
-                     timestamp: finalTs,
-                     dateString: formatDate(finalTs),
-                     title: title,
-                     detailedDesc: desc,
-                     caption: cap,
-                     lat: finalLat,
-                     lng: finalLng,
-                     heading: state.heading,
-                     weather: state.weather,
-                     photoNumber: thisNum
-                 };
+                const title = $('cap-title') ? $('cap-title').value.trim() : '';
+                const desc = $('cap-desc') ? $('cap-desc').value.trim() : '';
+                const cap = (title && desc) ? `${title} - ${desc}` : (desc || title || defaultCaption || "No Caption");
+                let thisNum;
+                if (overrideNum !== null) { thisNum = overrideNum; }
+                else {
+                    const existing = state.items.filter(i => i.type === 'photo');
+                    thisNum = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0) + 1;
+                }
+                let finalTs = ts, finalLat = state.location?.lat || null, finalLng = state.location?.lng || null;
+                if (state.tempMeta) {
+                    finalTs = state.tempMeta.timestamp || ts;
+                    finalLat = (state.tempMeta.lat && state.tempMeta.lng) ? state.tempMeta.lat : null;
+                    finalLng = (state.tempMeta.lat && state.tempMeta.lng) ? state.tempMeta.lng : null;
+                }
+                return { id, projectId: state.project, timestamp: finalTs, dateString: formatDate(finalTs), title, detailedDesc: desc, caption: cap, lat: finalLat, lng: finalLng, heading: state.heading, weather: state.weather, photoNumber: thisNum };
             }
 
+            // ── CONFIRM UPLOAD with timeout + auto-fallback ─────────────────
             async confirmUpload() {
-                if(state.editMode) {
-                    this.updateEntry();
-                    return;
-                }
+                if(state.editMode) { this.updateEntry(); return; }
 
-                // BATCH MODE HANDLING
+                // Persist caption inputs for "Use Last" feature (skip in edit mode)
+                const titleVal = $('cap-title').value.trim();
+                const descVal = $('cap-desc').value.trim();
+                if(titleVal || descVal) state.lastCaption = { title: titleVal, desc: descVal };
+
+                // BATCH MODE
                 if (state.batchMode) {
                     const doOverlay = $('burn-toggle').checked;
                     const count = state.queue.length;
-
-                    // Calculate starting photo number for sequential batch
                     const existing = state.items.filter(i => i.type === 'photo');
                     let currentMax = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
-
                     toggleLoader(true, `Processing ${count} items...`);
                     this.closeCaptionModal();
-
+                    let savedOffline = 0;
                     try {
-                        const promises = state.queue.map((item, idx) => {
-                            currentMax++; // Increment for this item
-                            // Pass overrideNum to createMeta
+                        for (const [idx, item] of state.queue.entries()) {
+                            currentMax++;
                             const meta = this.createMeta(item.id, item.timestamp, null, currentMax);
-                            // Force type photo for batch (series is photo only)
                             meta.type = 'photo';
-
+                            toggleLoader(true, `Uploading ${idx+1} of ${count}…`);
                             if (!state.online) {
-                                return this.offlineMgr.addToOutbox({
-                                    id: item.id,
-                                    blob: item.blob,
-                                    meta: meta,
-                                    doOverlay: doOverlay,
-                                    type: 'photo'
-                                });
+                                await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
+                                savedOffline++;
                             } else {
-                                return this.uploadWorkflow(item.blob, meta, doOverlay);
+                                try {
+                                    await withUploadTimeout(this.uploadWorkflow(item.blob, meta, doOverlay), getTimeoutMs());
+                                } catch(e) {
+                                    // Timed out — save to outbox
+                                    await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
+                                    savedOffline++;
+                                }
                             }
-                        });
-
-                        await Promise.all(promises);
-                        
-                        showToast(state.online ? "Batch Upload Complete" : "Batch Saved Offline");
+                        }
+                        const uploaded = count - savedOffline;
+                        if (savedOffline > 0 && uploaded > 0) showToast(`${uploaded} uploaded, ${savedOffline} saved offline`);
+                        else if (savedOffline > 0) showToast(`Slow connection — ${savedOffline} saved offline`);
+                        else showToast("Batch Upload Complete");
                         state.queue = [];
                         this.switchTab('report');
-                    } catch (e) {
-                         alert("Batch Error: " + e.message);
-                    } finally {
-                        toggleLoader(false);
-                    }
+                    } catch(e) { alert("Batch Error: " + e.message); }
+                    finally { toggleLoader(false); }
                     return;
                 }
 
-                // SINGLE UPLOAD HANDLING
+                // SINGLE UPLOAD
                 if(!state.pendingBlob) return;
-                
                 const meta = this.createMeta(state.pendingId, Date.now());
                 const doOverlay = $('burn-toggle').checked;
-                const blobToUpload = state.pendingBlob; // Capture blob before closing modal
-                
-                // Use the pending type (photo or sketch)
+                const blobToUpload = state.pendingBlob;
                 meta.type = state.pendingType || 'photo';
 
-                // OFFLINE HANDLING
                 if(!state.online) {
                     toggleLoader(true, "Saving Offline...");
-                    await this.offlineMgr.addToOutbox({
-                        id: state.pendingId,
-                        blob: blobToUpload,
-                        meta: meta,
-                        doOverlay: doOverlay,
-                        type: meta.type
-                    });
+                    await this.offlineMgr.addToOutbox({ id: state.pendingId, blob: blobToUpload, meta, doOverlay, type: meta.type });
                     this.closeCaptionModal();
                     toggleLoader(false);
                     showToast("Saved to Outbox (Offline)");
                     return;
                 }
 
-                // ONLINE HANDLING
-                toggleLoader(true, "Processing...");
-                this.closeCaptionModal(); // This clears state.pendingBlob, but we have blobToUpload
-
+                toggleLoader(true, "Uploading…");
+                this.closeCaptionModal();
                 try {
-                    await this.uploadWorkflow(blobToUpload, meta, doOverlay);
-                    showToast("Upload Complete");
+                    await withUploadTimeout(this.uploadWorkflow(blobToUpload, meta, doOverlay), getTimeoutMs());
+                    showToast("Upload Complete ✓");
                     this.switchTab('report');
                 } catch(e) {
-                    alert("Error: " + e.message);
+                    if(e.message === 'UPLOAD_TIMEOUT') {
+                        toggleLoader(true, "Slow connection — saving offline…");
+                        await this.offlineMgr.addToOutbox({ id: meta.id, blob: blobToUpload, meta, doOverlay, type: meta.type });
+                        showToast("⚡ Saved offline — will upload when signal improves");
+                    } else {
+                        alert("Upload Error: " + e.message);
+                    }
                 } finally {
-                    toggleLoader(false);
+                    toggleLoader(false); // always dismiss — was missing, causing stuck spinner on success
                 }
             }
 
             async uploadWorkflow(blob, meta, doOverlay) {
-                // ADDED SAFETY CHECK: Ensure blob exists
-                if (!blob) {
-                    console.error("Upload failed: No blob provided");
-                    return;
-                }
-
-                // 1. Upload Raw - Use extension from name if possible
+                if (!blob) { console.error("Upload failed: No blob provided"); return; }
                 let ext = 'jpg';
-                if (blob.name) {
-                    const parts = blob.name.split('.');
-                    if (parts.length > 1) ext = parts.pop();
-                }
+                if (blob.name) { const parts = blob.name.split('.'); if (parts.length > 1) ext = parts.pop(); }
                 const rawPath = `artifacts/${appId}/public/data/files/${state.project}/raw_${meta.id}.${ext}`;
                 await uploadBytes(ref(state.storage, rawPath), blob);
                 meta.rawStoragePath = rawPath;
-
-                // 2. Process Overlay (if enabled)
                 let finalBlob = blob;
-                if(doOverlay) {
-                    finalBlob = await this.burnOverlay(blob, meta);
-                }
-
-                // 3. Upload Display Image
+                if(doOverlay) finalBlob = await this.burnOverlay(blob, meta);
                 const dispPath = `artifacts/${appId}/public/data/files/${state.project}/${meta.id}.jpg`;
                 const snap = await uploadBytes(ref(state.storage, dispPath), finalBlob);
                 const url = await getDownloadURL(snap.ref);
-
-                // 4. Save DB Entry
-                meta.url = url;
-                meta.storagePath = dispPath;
-                // Ensure type is set (defaults to photo if undefined, but should be passed in meta)
+                meta.url = url; meta.storagePath = dispPath;
                 if(!meta.type) meta.type = 'photo';
-                
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, meta.id), meta);
             }
 
             burnOverlay(blob, meta) {
                 return new Promise((resolve) => {
                     const img = new Image();
-                    
-                    // Fallback mechanism
-                    const fallback = () => {
-                        console.warn("Image processing failed, using original.");
-                        resolve(blob); 
-                    };
-
+                    const fallback = () => { console.warn("Overlay failed, using original."); resolve(blob); };
                     img.onload = () => {
                         try {
                             const c = document.createElement('canvas');
-                            
-                            // CALCULATE SCALED DIMENSIONS to max 2560px (Increased for quality)
-                            let w = img.naturalWidth;
-                            let h = img.naturalHeight;
+                            let w = img.naturalWidth, h = img.naturalHeight;
                             const MAX_DIM = 2560;
-                            
                             if (w > MAX_DIM || h > MAX_DIM) {
-                                if (w > h) {
-                                    h = Math.round(h * (MAX_DIM / w));
-                                    w = MAX_DIM;
-                                } else {
-                                    w = Math.round(w * (MAX_DIM / h));
-                                    h = MAX_DIM;
-                                }
+                                if (w > h) { h = Math.round(h * (MAX_DIM / w)); w = MAX_DIM; }
+                                else { w = Math.round(w * (MAX_DIM / h)); h = MAX_DIM; }
                             }
-
-                            c.width = w;
-                            c.height = h;
+                            c.width = w; c.height = h;
                             const ctx = c.getContext('2d');
-                            
-                            // Draw Image
                             ctx.fillStyle = "#fff"; ctx.fillRect(0,0,w,h);
                             ctx.drawImage(img, 0, 0, w, h);
-
-                            // Overlay Logic
                             const fSize = Math.floor(h * 0.025);
-                            const pad = fSize * 0.6;
-                            const lh = fSize * 1.4;
-                            
+                            const pad = fSize * 0.6, lh = fSize * 1.4;
                             ctx.font = `bold ${fSize}px Inter, sans-serif`;
                             ctx.textBaseline = "top";
-
-                            // Data Block
                             const lines = [
                                 `PROJECT: ${meta.projectId}  |  PHOTO #${meta.photoNumber}`,
                                 `DATE: ${meta.dateString}`,
@@ -1357,226 +1236,118 @@
                                 `HEADING: ${meta.heading ? Math.round(meta.heading)+'°' : '--'}`,
                                 `NOTES: ${meta.caption}`
                             ];
-
-                            // Calculate box height based on wrapping note
                             let renderLines = [];
                             const maxW = w - (pad*2);
-                            
                             lines.forEach((l, i) => {
-                                if(i === lines.length - 1) { // Wrap note
-                                    const words = l.split(' ');
-                                    let line = words[0];
+                                if(i === lines.length - 1) {
+                                    const words = l.split(' '); let line = words[0];
                                     for(let j=1; j<words.length; j++) {
                                         if(ctx.measureText(line + " " + words[j]).width < maxW) line += " " + words[j];
                                         else { renderLines.push(line); line = words[j]; }
                                     }
                                     renderLines.push(line);
-                                } else {
-                                    renderLines.push(l);
-                                }
+                                } else { renderLines.push(l); }
                             });
-
                             const boxH = (renderLines.length * lh) + (pad*2);
-                            
-                            // Draw Box
                             ctx.fillStyle = "rgba(0,0,0,0.6)";
                             ctx.fillRect(0, h - boxH, w, boxH);
-
-                            // Draw Text
                             ctx.fillStyle = "#ffffff";
                             let y = h - boxH + pad;
-                            renderLines.forEach(l => {
-                                ctx.fillText(l, pad, y);
-                                y += lh;
-                            });
-
-                            c.toBlob((b) => {
-                                if(b) resolve(b);
-                                else fallback();
-                            }, 'image/jpeg', 0.95); // High Quality
+                            renderLines.forEach(l => { ctx.fillText(l, pad, y); y += lh; });
+                            c.toBlob((b) => { if(b) resolve(b); else fallback(); }, 'image/jpeg', 0.95);
                         } catch(e) { fallback(); }
                     };
-                    
-                    img.onerror = fallback; // Handle unsupported formats (HEIC etc)
-
+                    img.onerror = fallback;
                     try {
-                        img.src = URL.createObjectURL(blob);
-                    } catch(e) {
-                        fallback();
-                    }
+                        const objUrl = URL.createObjectURL(blob);
+                        img.src = objUrl;
+                        // Revoke after browser has decoded the image
+                        img.addEventListener('load', () => URL.revokeObjectURL(objUrl), { once: true });
+                    } catch(e) { fallback(); }
                 });
             }
 
-            // --- SKETCHING ---
             openSketch() {
                 $('modal-sketch').classList.remove('hidden');
-                const canvas = $('sketch-canvas');
-                const wrap = $('sketch-wrapper');
-                canvas.width = wrap.clientWidth;
-                canvas.height = wrap.clientHeight;
+                const canvas = $('sketch-canvas'), wrap = $('sketch-wrapper');
+                canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                
-                this.bgImage = null; // Clear any previous background image
-                this.wbCtx = ctx;
-                this.isDrawing = false;
-                this.undoStack = []; // Reset Undo Stack on open
-
-                // Event Listeners (Pointer)
-                canvas.onpointerdown = (e) => { 
-                    // SAVE STATE BEFORE STARTING NEW STROKE
-                    this.undoStack.push(canvas.toDataURL());
-                    this.isDrawing=true; 
-                    ctx.beginPath(); 
-                    ctx.moveTo(e.offsetX, e.offsetY); 
-                };
-                canvas.onpointermove = (e) => { 
-                    if(!this.isDrawing) return; 
-                    ctx.lineTo(e.offsetX, e.offsetY); 
-                    ctx.strokeStyle = $('sketch-color').value;
-                    ctx.lineWidth = $('sketch-size').value;
-                    ctx.stroke(); 
-                };
+                this.bgImage = null; this.wbCtx = ctx; this.isDrawing = false; this.undoStack = [];
+                canvas.onpointerdown = (e) => { this.undoStack.push(canvas.toDataURL()); if(this.undoStack.length > this.undoLimit) this.undoStack.shift(); this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
+                canvas.onpointermove = (e) => { if(!this.isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.strokeStyle = $('sketch-color').value; ctx.lineWidth = $('sketch-size').value; ctx.stroke(); };
                 canvas.onpointerup = () => this.isDrawing = false;
+                canvas.onpointercancel = () => this.isDrawing = false; // handles phone calls, swipe gestures etc.
             }
 
             closeSketch() { $('modal-sketch').classList.add('hidden'); }
-            
-            clearSketch() { 
-                const c = $('sketch-canvas'); 
-                const ctx = this.wbCtx;
-                
-                // 1. Clear to white
-                ctx.fillStyle = "#fff"; 
-                ctx.fillRect(0, 0, c.width, c.height); 
-                
-                // 2. If we have a background image (annotating), redraw it
+
+            clearSketch() {
+                const c = $('sketch-canvas'), ctx = this.wbCtx;
+                ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
                 if (this.bgImage) {
                     const img = this.bgImage;
                     const scale = Math.min(c.width / img.width, c.height / img.height);
-                    const x = (c.width / 2) - (img.width / 2) * scale;
-                    const y = (c.height / 2) - (img.height / 2) * scale;
-                    ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
+                    ctx.drawImage(img, (c.width/2)-(img.width/2)*scale, (c.height/2)-(img.height/2)*scale, img.width*scale, img.height*scale);
                 }
             }
 
             undoSketch() {
                 if (this.undoStack.length === 0) return;
-                const previousState = this.undoStack.pop();
                 const img = new Image();
-                img.onload = () => {
-                    const c = $('sketch-canvas');
-                    this.wbCtx.clearRect(0,0, c.width, c.height);
-                    this.wbCtx.drawImage(img, 0, 0);
-                };
-                img.src = previousState;
+                img.onload = () => { const c = $('sketch-canvas'); this.wbCtx.clearRect(0,0,c.width,c.height); this.wbCtx.drawImage(img,0,0); };
+                img.src = this.undoStack.pop();
             }
-            
+
             toggleEraser() {
                 this.isEraser = !this.isEraser;
                 const btn = $('btn-eraser');
-                if (this.isEraser) {
-                    this.lastColor = $('sketch-color').value;
-                    // If annotating an image, "erasing" is complex without layers.
-                    // For now, we will paint white, which acts as an eraser on white background
-                    // but will paint white lines over a photo. This is standard simple behavior.
-                    $('sketch-color').value = '#ffffff'; 
-                    btn.classList.add('bg-slate-200', 'text-blue-600');
-                } else {
-                    $('sketch-color').value = this.lastColor; // Restore color
-                    btn.classList.remove('bg-slate-200', 'text-blue-600');
-                }
+                if (this.isEraser) { this.lastColor = $('sketch-color').value; $('sketch-color').value = '#ffffff'; btn.classList.add('bg-slate-200', 'text-blue-600'); }
+                else { $('sketch-color').value = this.lastColor; btn.classList.remove('bg-slate-200', 'text-blue-600'); }
             }
-            
+
             saveSketch() {
                 $('sketch-canvas').toBlob((blob) => {
-                    if (blob) {
-                        this.closeSketch();
-                        // Check if we were editing an existing item
-                        const existingId = (state.editMode && state.currentItem) ? state.currentItem.id : null;
-                        this.handleFileSelect(blob, false, 'sketch', existingId);
-                    } else {
-                        showToast("Error saving sketch");
-                    }
+                    if (blob) { this.closeSketch(); this.handleFileSelect(blob, false, 'sketch'); }
+                    else showToast("Error saving sketch");
                 }, 'image/jpeg');
             }
-            
+
             annotateImage() {
-                // Check if we are in Edit Mode and have a raw file
                 const current = state.currentItem;
                 const useRaw = state.editMode && current && current.rawStoragePath;
-
-                // Helper to load image into canvas
                 const loadToCanvas = (src) => {
-                    const canvas = $('sketch-canvas');
-                    const wrap = $('sketch-wrapper');
-                    canvas.width = wrap.clientWidth;
-                    canvas.height = wrap.clientHeight;
+                    const canvas = $('sketch-canvas'), wrap = $('sketch-wrapper');
+                    canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
                     const ctx = canvas.getContext('2d');
-                    this.wbCtx = ctx;
-                    this.undoStack = []; // Reset stack
-                    
+                    this.wbCtx = ctx; this.undoStack = [];
                     ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
-                    
-                    const img = new Image();
-                    img.crossOrigin = "Anonymous"; // CRITICAL for Firebase Storage
+                    const img = new Image(); img.crossOrigin = "Anonymous";
                     img.onload = () => {
-                        const scale = Math.min(canvas.width / img.width, canvas.height / img.height);
-                        const x = (canvas.width / 2) - (img.width / 2) * scale;
-                        const y = (canvas.height / 2) - (img.height / 2) * scale;
-                        ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
-                        this.bgImage = img; // Store for clear/undo logic
-                        toggleLoader(false);
+                        const scale = Math.min(canvas.width/img.width, canvas.height/img.height);
+                        ctx.drawImage(img, (canvas.width/2)-(img.width/2)*scale, (canvas.height/2)-(img.height/2)*scale, img.width*scale, img.height*scale);
+                        this.bgImage = img; toggleLoader(false);
                     };
-                    img.onerror = () => {
-                        toggleLoader(false);
-                        showToast("Error loading image for editing");
-                    };
+                    img.onerror = () => { toggleLoader(false); showToast("Error loading image"); };
                     img.src = src;
-
-                    // Re-bind events
                     this.isDrawing = false;
-                    canvas.onpointerdown = (e) => { 
-                        this.undoStack.push(canvas.toDataURL());
-                        this.isDrawing=true; 
-                        ctx.beginPath(); 
-                        ctx.moveTo(e.offsetX, e.offsetY); 
-                    };
-                    canvas.onpointermove = (e) => { 
-                        if(!this.isDrawing) return; 
-                        ctx.lineTo(e.offsetX, e.offsetY); 
-                        ctx.strokeStyle = $('sketch-color').value;
-                        ctx.lineWidth = $('sketch-size').value;
-                        ctx.stroke(); 
-                    };
+                    canvas.onpointerdown = (e) => { this.undoStack.push(canvas.toDataURL()); if(this.undoStack.length > this.undoLimit) this.undoStack.shift(); this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
+                    canvas.onpointermove = (e) => { if(!this.isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.strokeStyle = $('sketch-color').value; ctx.lineWidth = $('sketch-size').value; ctx.stroke(); };
                     canvas.onpointerup = () => this.isDrawing = false;
+                    canvas.onpointercancel = () => this.isDrawing = false;
                 };
-
                 this.closeCaptionModal();
                 $('modal-sketch').classList.remove('hidden');
-                
-                // Logic to fetch correct image source
                 setTimeout(async () => {
                     if (useRaw) {
                         toggleLoader(true, "Loading Raw Image...");
-                        try {
-                            const url = await getDownloadURL(ref(state.storage, current.rawStoragePath));
-                            loadToCanvas(url);
-                        } catch (e) {
-                            console.error("Failed to load raw image", e);
-                            toggleLoader(false);
-                            // Fallback to preview image if raw fails
-                            loadToCanvas($('modal-img-preview').src);
-                        }
-                    } else {
-                        // Use the preview image (new photo or simple sketch)
-                        loadToCanvas($('modal-img-preview').src);
-                    }
+                        try { loadToCanvas(await getDownloadURL(ref(state.storage, current.rawStoragePath))); }
+                        catch(e) { toggleLoader(false); loadToCanvas($('modal-img-preview').src); }
+                    } else { loadToCanvas($('modal-img-preview').src); }
                 }, 100);
             }
 
-            // --- NOTES ---
             openNotes(item = null) {
                 $('modal-notes').classList.remove('hidden');
                 if (item) {
@@ -1587,76 +1358,45 @@
                     $('btn-save-note').innerText = "Update Note";
                 } else {
                     state.editingNoteId = null;
-                    $('note-title').value = '';
-                    $('note-text').value = '';
+                    $('note-title').value = ''; $('note-text').value = '';
                     $('note-modal-title').innerText = "Field Observation";
                     $('btn-save-note').innerText = "Save Note";
                 }
             }
 
-            closeNotes() {
-                $('modal-notes').classList.add('hidden');
-                $('note-title').value = '';
-                $('note-text').value = '';
-            }
+            closeNotes() { $('modal-notes').classList.add('hidden'); $('note-title').value = ''; $('note-text').value = ''; }
 
             async saveNote() {
-                const title = $('note-title').value.trim();
-                const text = $('note-text').value.trim();
+                const title = $('note-title').value.trim(), text = $('note-text').value.trim();
                 if(!text && !title) return showToast("Empty Note");
-
-                let id = state.editingNoteId;
-                let isNew = false;
-                
-                if (!id) {
-                     id = Date.now().toString();
-                     isNew = true;
-                }
-
+                let id = state.editingNoteId, isNew = !id;
+                if (!id) id = Date.now().toString();
                 let meta;
                 if (isNew) {
-                     meta = {
-                        id, projectId: state.project, type: 'note',
-                        title, detailedDesc: text, text,
-                        timestamp: Date.now(), dateString: formatDate(Date.now()),
-                        lat: state.location?.lat || null, lng: state.location?.lng || null
-                    };
+                    meta = { id, projectId: state.project, type: 'note', title, detailedDesc: text, text, timestamp: Date.now(), dateString: formatDate(Date.now()), lat: state.location?.lat || null, lng: state.location?.lng || null };
                 } else {
-                    const original = state.items.find(i => i.id === id);
-                    meta = {
-                        ...original,
-                        title, 
-                        detailedDesc: text, 
-                        text
-                    };
+                    meta = { ...state.items.find(i => i.id === id), title, detailedDesc: text, text };
                 }
-                
-                // OFFLINE NOTE
                 if(!state.online) {
                     await this.offlineMgr.addToOutbox({ id, meta, type:'note' });
                     this.closeNotes();
                     showToast(isNew ? "Note Saved (Offline)" : "Note Updated (Offline)");
                     return;
                 }
-
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta);
                 this.closeNotes();
                 showToast(isNew ? "Note Saved" : "Note Updated");
                 this.switchTab('report');
             }
 
-            // --- REPORT & DATA ---
             loadData() {
+                // Unsubscribe previous listener to avoid stale data from old project
+                if (this.unsubscribeData) { this.unsubscribeData(); this.unsubscribeData = null; }
                 const q = query(collection(state.db, `artifacts/${appId}/public/data/images`), where("projectId", "==", state.project));
-                onSnapshot(q, (snap) => {
+                this.unsubscribeData = onSnapshot(q, (snap) => {
                     state.items = [];
                     snap.forEach(d => state.items.push(d.data()));
-                    state.items.sort((a,b) => b.timestamp - a.timestamp); // Newest first
-                    
-                    // NEW: Initialize report selection
-                    // By default, assume all items are included unless explicitly excluded.
-                    // This way new items are automatically included.
-                    
+                    state.items.sort((a,b) => b.timestamp - a.timestamp);
                     this.renderFeed();
                 });
             }
@@ -1665,85 +1405,30 @@
                 const feed = $('report-feed');
                 feed.innerHTML = '';
                 const term = $('search-input').value.toLowerCase();
-
                 const filtered = state.items.filter(i => {
                     if(state.filter !== 'all' && i.type !== state.filter) return false;
                     if(term && !JSON.stringify(i).toLowerCase().includes(term)) return false;
                     return true;
                 });
-
-                if(filtered.length === 0) {
-                    feed.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm">No entries found.</div>`;
-                    return;
-                }
-
+                if(filtered.length === 0) { feed.innerHTML = `<div class="text-center text-slate-400 py-10 text-sm">No entries found.</div>`; return; }
                 filtered.forEach(item => {
                     const div = document.createElement('div');
                     div.className = "bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex transition hover:shadow-md relative";
-                    
-                    // Determine checked state based on exclusion set
                     const isChecked = !state.excludedReportItems.has(item.id);
-
-                    // Add Checkbox HTML
-                    const checkboxHtml = `
-                        <div class="absolute top-2 left-2 z-20" onclick="event.stopPropagation()">
-                            <input type="checkbox" class="w-5 h-5 accent-blue-600 rounded cursor-pointer shadow-sm" 
-                                ${isChecked ? 'checked' : ''} 
-                                onchange="window.app.toggleReportSelection('${item.id}')">
-                        </div>
-                    `;
-                    
+                    const checkboxHtml = `<div class="absolute top-2 left-2 z-20" onclick="event.stopPropagation()"><input type="checkbox" class="w-5 h-5 accent-blue-600 rounded cursor-pointer shadow-sm" ${isChecked ? 'checked' : ''} onchange="window.app.toggleReportSelection('${item.id}')"></div>`;
                     if(item.type === 'photo' || item.type === 'sketch') {
-                        div.innerHTML = `
-                            ${checkboxHtml}
-                            <div class="w-24 h-24 bg-slate-200 relative cursor-pointer flex-none flex items-center justify-center text-slate-400" onclick="window.app.showDetail('${item.id}')">
-                                <i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i>
-                                <img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'">
-                            </div>
-                            <div class="p-3 flex-1 flex flex-col justify-between overflow-hidden">
-                                <div>
-                                    <div class="flex justify-between items-start">
-                                        <div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div>
-                                        <div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div>
-                                    </div>
-                                    <h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4>
-                                    <p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p>
-                                </div>
-                                <div class="flex justify-end gap-3 mt-2">
-                                    <button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button>
-                                    <button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
-                                </div>
-                            </div>
-                        `;
+                        div.innerHTML = `${checkboxHtml}<div class="w-24 h-24 bg-slate-200 relative cursor-pointer flex-none flex items-center justify-center text-slate-400" onclick="window.app.showDetail('${item.id}')"><i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i><img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'"></div><div class="p-3 flex-1 flex flex-col justify-between overflow-hidden"><div><div class="flex justify-between items-start"><div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div><div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div></div><h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4><p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p></div><div class="flex justify-end gap-3 mt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     } else {
-                        div.innerHTML = `
-                             ${checkboxHtml}
-                             <div class="w-2 bg-yellow-400 flex-none"></div>
-                             <div class="p-3 flex-1">
-                                <div class="flex justify-between items-start mb-1">
-                                    <span class="text-[10px] text-slate-400 font-mono ml-6">${item.dateString}</span>
-                                    <i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i>
-                                </div>
-                                <h4 class="text-sm font-bold text-slate-800">${item.title || 'Note'}</h4>
-                                <p class="text-xs text-slate-600 mt-1 line-clamp-2">${item.text}</p>
-                                <div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2">
-                                    <button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button>
-                                    <button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
-                                </div>
-                             </div>
-                        `;
+                        div.innerHTML = `${checkboxHtml}<div class="w-2 bg-yellow-400 flex-none"></div><div class="p-3 flex-1"><div class="flex justify-between items-start mb-1"><span class="text-[10px] text-slate-400 font-mono ml-6">${item.dateString}</span><i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i></div><h4 class="text-sm font-bold text-slate-800">${item.title || 'Note'}</h4><p class="text-xs text-slate-600 mt-1 line-clamp-2">${item.text}</p><div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     }
                     feed.appendChild(div);
                 });
                 lucide.createIcons();
             }
-            
+
             toggleReportSelection(id) {
-                if (state.excludedReportItems.has(id)) {
-                    state.excludedReportItems.delete(id);
-                } else {
-                    state.excludedReportItems.add(id);
-                }
+                if (state.excludedReportItems.has(id)) state.excludedReportItems.delete(id);
+                else state.excludedReportItems.add(id);
             }
 
             setFilter(f) {
@@ -1755,12 +1440,13 @@
                 });
                 this.renderFeed();
             }
-            
+
             filterFeed() { this.renderFeed(); }
 
             async deleteEntry(id) {
                 if(!confirm("Delete this entry?")) return;
                 const item = state.items.find(i => i.id === id);
+                if(!item) return showToast("Item not found");
                 toggleLoader(true, "Deleting...");
                 try {
                     await deleteDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id));
@@ -1775,35 +1461,21 @@
                 const item = state.items.find(i => i.id === id);
                 if(!item) return;
                 state.currentItem = item;
-                if(item.type === 'photo' || item.type === 'sketch') {
-                    this.openCaptionModal(item.url, true);
-                } else {
-                    // New logic
-                    this.openNotes(item);
-                }
+                if(item.type === 'photo' || item.type === 'sketch') this.openCaptionModal(item.url, true);
+                else this.openNotes(item);
             }
-            
+
             async updateEntry() {
                 const item = state.currentItem;
-                const newTitle = $('cap-title').value.trim();
-                const newDesc = $('cap-desc').value.trim();
-                const newCap = (newTitle && newDesc) ? `${newTitle} - ${newDesc}` : newDesc;
-                
-                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), {
-                    title: newTitle, detailedDesc: newDesc, caption: newCap
-                }, { merge: true });
-                
+                const newTitle = $('cap-title').value.trim(), newDesc = $('cap-desc').value.trim();
+                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), { title: newTitle, detailedDesc: newDesc, caption: (newTitle && newDesc) ? `${newTitle} - ${newDesc}` : newDesc }, { merge: true });
                 this.closeCaptionModal();
                 showToast("Entry Updated");
             }
 
-            // --- MAP ---
             initMap() {
                 this.map = L.map('map-container').setView([39.8, -98.5], 4);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-                    attribution: '&copy; OpenStreetMap &copy; CARTO',
-                    maxZoom: 20
-                }).addTo(this.map);
+                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 20 }).addTo(this.map);
                 this.markers = L.layerGroup().addTo(this.map);
             }
 
@@ -1813,18 +1485,9 @@
                 const bounds = [];
                 state.items.forEach(i => {
                     if(i.lat && i.lng) {
-                        let color = '#2563eb'; // blue for photo
-                        if (i.type === 'note') color = '#eab308'; // yellow
-                        if (i.type === 'sketch') color = '#9333ea'; // purple
-
-                        const icon = L.divIcon({
-                            className: 'custom-div-icon',
-                            html: `<div style="background-color:${color}; width:12px; height:12px; border-radius:50%; border:2px solid white; box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`,
-                            iconSize: [12, 12],
-                            iconAnchor: [6, 6]
-                        });
-                        const m = L.marker([i.lat, i.lng], { icon }).bindPopup(`<b>${i.title||'Item'}</b><br>${i.dateString}`);
-                        this.markers.addLayer(m);
+                        let color = i.type === 'note' ? '#eab308' : (i.type === 'sketch' ? '#9333ea' : '#2563eb');
+                        const icon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`, iconSize: [12,12], iconAnchor: [6,6] });
+                        this.markers.addLayer(L.marker([i.lat, i.lng], { icon }).bindPopup(`<b>${i.title||'Item'}</b><br>${i.dateString}`));
                         bounds.push([i.lat, i.lng]);
                     }
                 });
@@ -1834,15 +1497,10 @@
             centerMap() {
                 if(state.location && this.map) {
                     this.map.setView([state.location.lat, state.location.lng], 16);
-                    L.marker([state.location.lat, state.location.lng], {
-                        icon: L.divIcon({ html: '<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow animate-pulse"></div>' })
-                    }).addTo(this.map);
-                } else {
-                    showToast("Waiting for GPS...");
-                }
+                    L.marker([state.location.lat, state.location.lng], { icon: L.divIcon({ html: '<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow animate-pulse"></div>' }) }).addTo(this.map);
+                } else showToast("Waiting for GPS...");
             }
 
-            // --- DETAIL VIEW ---
             showDetail(id) {
                 const item = state.items.find(i => i.id === id);
                 if(!item) return;
@@ -1851,52 +1509,32 @@
                 $('det-id').innerText = item.id;
                 $('det-caption').innerText = item.caption;
                 $('det-date').innerText = item.dateString;
-                
                 const gpsEl = $('det-gps');
-                if(item.lat) {
-                    gpsEl.innerText = `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`;
-                    gpsEl.href = `https://www.google.com/maps?q=${item.lat},${item.lng}`;
-                } else {
-                    gpsEl.innerText = "No Data"; gpsEl.removeAttribute('href');
-                }
-                
+                if(item.lat) { gpsEl.innerText = `${item.lat.toFixed(6)}, ${item.lng.toFixed(6)}`; gpsEl.href = `https://www.google.com/maps?q=${item.lat},${item.lng}`; }
+                else { gpsEl.innerText = "No Data"; gpsEl.removeAttribute('href'); }
                 $('det-dl-btn').onclick = () => this.downloadFile(item.url, `${item.projectId}_${item.id}.jpg`);
-                
                 const rawBtn = $('det-raw-btn');
-                if(item.rawStoragePath) {
-                    rawBtn.classList.remove('hidden');
-                    rawBtn.onclick = async () => {
-                         const url = await getDownloadURL(ref(state.storage, item.rawStoragePath));
-                         this.downloadFile(url, `${item.projectId}_${item.id}_RAW.jpg`);
-                    };
-                } else {
-                    rawBtn.classList.add('hidden');
-                }
-
+                if(item.rawStoragePath) { rawBtn.classList.remove('hidden'); rawBtn.onclick = async () => { const url = await getDownloadURL(ref(state.storage, item.rawStoragePath)); this.downloadFile(url, `${item.projectId}_${item.id}_RAW.jpg`); }; }
+                else rawBtn.classList.add('hidden');
                 $('detail-modal').classList.remove('hidden');
             }
 
             async downloadFile(url, name) {
                 try {
-                    const r = await fetch(url);
-                    const b = await r.blob();
+                    const r = await fetch(url); const b = await r.blob();
                     const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name;
                     document.body.appendChild(a); a.click(); document.body.removeChild(a);
                 } catch(e) { alert("Download failed"); }
             }
 
-            // --- FILES ---
             async refreshFiles() { this.loadFiles(state.path); }
             async loadFiles(path) {
                 const grid = $('file-grid');
                 $('browser-path').innerText = path;
                 grid.innerHTML = '<div class="col-span-full text-center text-xs text-slate-400">Loading...</div>';
-                
                 try {
                     const res = await listAll(ref(state.storage, path));
                     grid.innerHTML = '';
-                    
-                    // Folders
                     res.prefixes.forEach(p => {
                         const el = document.createElement('div');
                         el.className = "bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100 aspect-square";
@@ -1904,161 +1542,108 @@
                         el.innerHTML = `<i data-lucide="folder" class="w-8 h-8 text-yellow-500 mb-2"></i><span class="text-[10px] font-bold text-yellow-800 truncate w-full text-center">${p.name}</span>`;
                         grid.appendChild(el);
                     });
-
-                    // Files
-                    for(const item of res.items) {
-                         const url = await getDownloadURL(item);
-                         const el = document.createElement('div');
-                         el.className = "bg-white border border-slate-200 rounded-lg overflow-hidden relative group aspect-square";
-                         el.innerHTML = `
-                            <img src="${url}" class="w-full h-full object-cover">
-                            <a href="${url}" target="_blank" class="absolute inset-0"></a>
-                            <div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] p-1 truncate">${item.name}</div>
-                         `;
-                         grid.appendChild(el);
-                    }
+                    // Fetch all download URLs in parallel instead of sequentially
+                    await Promise.all(res.items.map(async (item) => {
+                        try {
+                            const url = await getDownloadURL(item);
+                            const el = document.createElement('div');
+                            el.className = "bg-white border border-slate-200 rounded-lg overflow-hidden relative group aspect-square";
+                            el.innerHTML = `<img src="${url}" class="w-full h-full object-cover"><a href="${url}" target="_blank" class="absolute inset-0"></a><div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] p-1 truncate">${item.name}</div>`;
+                            grid.appendChild(el);
+                        } catch(e) { console.warn('Could not load file', item.name, e); }
+                    }));
                     if(!res.prefixes.length && !res.items.length) grid.innerHTML = '<div class="col-span-full text-center text-xs text-slate-300 py-10">Empty Folder</div>';
                     lucide.createIcons();
                     state.path = path;
                 } catch(e) { grid.innerHTML = `<div class="text-red-500 text-xs">Error loading files</div>`; }
             }
-            
+
             fileBrowserUp() {
                 const parts = state.path.split('/');
                 if(parts.length > 1) { parts.pop(); this.loadFiles(parts.join('/')); }
             }
 
-            // --- EXPORTS ---
             async genPDF() {
-                // Filter items based on checkbox state (excluded list)
-                // Sort chronologically (Oldest first) for the report
-                const exportItems = state.items
-                    .filter(i => !state.excludedReportItems.has(i.id))
-                    .sort((a, b) => a.timestamp - b.timestamp);
-                
+                const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id)).sort((a,b) => a.timestamp - b.timestamp);
                 if(exportItems.length === 0) return showToast("No items selected for report");
-
                 toggleLoader(true, "Generating PDF...");
+                try {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF();
-                let y = 20;
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const pageHeight = doc.internal.pageSize.getHeight();
-                
-                // Title Page
-                doc.setFontSize(22); 
-                doc.text("Field Inspection Report", pageWidth/2, 40, {align:'center'});
-                
-                doc.setFontSize(14); 
-                doc.text(`Project: ${state.project}`, pageWidth/2, 55, {align:'center'});
+                const pageWidth = doc.internal.pageSize.getWidth(), pageHeight = doc.internal.pageSize.getHeight();
+                doc.setFontSize(22); doc.text("Field Inspection Report", pageWidth/2, 40, {align:'center'});
+                doc.setFontSize(14); doc.text(`Project: ${state.project}`, pageWidth/2, 55, {align:'center'});
                 doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth/2, 65, {align:'center'});
-                
-                const addFooter = (pageNum) => {
-                    doc.setFontSize(8);
-                    doc.text(`Page ${pageNum}`, pageWidth - 20, doc.internal.pageSize.getHeight() - 10);
-                };
-                let pageNum = 1;
+                let pageNum = 1, y = 20;
+                const addFooter = (n) => { doc.setFontSize(8); doc.text(`Page ${n}`, pageWidth - 20, pageHeight - 10); };
                 addFooter(pageNum);
-
-                // Helper for Images (Photos & Sketches)
                 const addImagesToPDF = async (sectionTitle, items) => {
                     if(items.length === 0) return;
-                    
                     doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
                     doc.setFontSize(16); doc.text(sectionTitle, 15, y); y += 15;
-
                     for(let i=0; i<items.length; i++) {
                         const p = items[i];
                         try {
                             const imgData = await this.urlToBase64(p.url);
                             const imgProps = doc.getImageProperties(imgData);
                             const ratio = imgProps.height / imgProps.width;
-                            const maxW = 170; 
-                            const maxH = 100; 
-                            
-                            let displayW = maxW;
-                            let displayH = displayW * ratio;
-                            if (displayH > maxH) { displayH = maxH; displayW = displayH / ratio; }
-
-                            doc.setFontSize(9);
-                            const caption = p.caption || p.detailedDesc || "No caption";
-                            const splitText = doc.splitTextToSize(caption, 170);
-                            const textBlockH = 15 + (splitText.length * 5); 
-                            const totalBlockH = displayH + textBlockH + 10; 
-
-                            if (y + totalBlockH > pageHeight - 20) { 
-                                doc.addPage(); pageNum++; addFooter(pageNum); y = 20; 
-                            }
-                            
-                            const x = 20 + (maxW - displayW) / 2;
-                            doc.addImage(imgData, 'JPEG', x, y, displayW, displayH);
-                            doc.setDrawColor(200); doc.rect(x, y, displayW, displayH);
-                            y += displayH + 5; 
-                            
+                            let displayW = 170, displayH = displayW * ratio;
+                            if (displayH > 100) { displayH = 100; displayW = displayH / ratio; }
+                            const splitText = doc.splitTextToSize(p.caption || p.detailedDesc || "No caption", 170);
+                            const totalBlockH = displayH + 15 + (splitText.length * 5) + 10;
+                            if (y + totalBlockH > pageHeight - 20) { doc.addPage(); pageNum++; addFooter(pageNum); y = 20; }
+                            doc.addImage(imgData, 'JPEG', 20 + (170-displayW)/2, y, displayW, displayH);
+                            doc.setDrawColor(200); doc.rect(20+(170-displayW)/2, y, displayW, displayH);
+                            y += displayH + 5;
                             doc.setFontSize(10); doc.setFont("helvetica", "bold");
-                            // Number sketches sequentially in the report using 'i+1' for this section
-                            const label = p.type === 'sketch' ? `Sketch ${i+1}` : `Photo #${p.photoNumber || (i+1)}`;
-                            doc.text(label, 20, y);
-                            
-                            doc.setFont("helvetica", "normal");
-                            const dateStr = p.dateString || new Date(p.timestamp).toLocaleString();
-                            doc.text(dateStr, 190, y, {align:'right'});
-                            y += 5;
-                            doc.setFontSize(9);
-                            doc.text(splitText, 20, y);
-                            y += (splitText.length * 5) + 10;
-                        } catch(e) { console.error("PDF Image Error", e); }
+                            doc.text(p.type === 'sketch' ? `Sketch ${i+1}` : `Photo #${p.photoNumber||(i+1)}`, 20, y);
+                            doc.setFont("helvetica", "normal"); doc.text(p.dateString||'', 190, y, {align:'right'}); y += 5;
+                            doc.setFontSize(9); doc.text(splitText, 20, y); y += (splitText.length * 5) + 10;
+                        } catch(e) {}
                     }
                 };
-
-                // 1. Field Notes (First)
                 const notes = exportItems.filter(i => i.type === 'note');
                 if(notes.length > 0) {
                     doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
                     doc.setFontSize(16); doc.text("Field Notes", 15, y); y += 15;
-                    notes.forEach((n, idx) => {
+                    notes.forEach(n => {
                         if(y + 40 > pageHeight) { doc.addPage(); pageNum++; addFooter(pageNum); y = 20; }
-                        doc.setDrawColor(220); doc.setFillColor(248, 250, 252);
-                        doc.roundedRect(15, y, 180, 0, 2, 2); 
                         const startY = y; y += 5;
                         doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(n.title || "Note", 20, y);
-                        doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text(n.dateString, 185, y, {align:'right'});
-                        y += 7;
-                        const desc = n.text || n.detailedDesc || "";
-                        const splitDesc = doc.splitTextToSize(desc, 170);
-                        doc.text(splitDesc, 20, y);
-                        y += (splitDesc.length * 5) + 10;
-                        const height = y - startY - 5;
-                        doc.rect(15, startY, 180, height);
-                        y += 5;
+                        doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text(n.dateString, 185, y, {align:'right'}); y += 7;
+                        const splitDesc = doc.splitTextToSize(n.text || n.detailedDesc || "", 170);
+                        doc.text(splitDesc, 20, y); y += (splitDesc.length * 5) + 10;
+                        doc.rect(15, startY, 180, y - startY - 5); y += 5;
                     });
                 }
-
-                // 2. Photo Log (Second)
                 await addImagesToPDF("Photo Log", exportItems.filter(i => i.type === 'photo'));
-
-                // 3. Sketch Log (Third)
                 await addImagesToPDF("Sketch Log", exportItems.filter(i => i.type === 'sketch'));
-                
                 doc.save(`${state.project}_Report.pdf`);
-                toggleLoader(false);
+                } catch(e) {
+                    console.error("PDF generation error", e);
+                    alert("PDF generation failed: " + e.message);
+                } finally {
+                    toggleLoader(false);
+                }
             }
 
             async genCSV() {
                 const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id));
                 if(exportItems.length === 0) return showToast("No items selected");
-
-                const rows = [["ID","Type","Date","Title","Description","Lat","Lng","URL"]];
-                exportItems.forEach(i => {
-                    rows.push([
-                        i.id, i.type, i.dateString, i.title||'', (i.detailedDesc||i.text||'').replace(/,/g, ';'), 
-                        i.lat||'', i.lng||'', i.url||''
-                    ]);
-                });
-                const csv = rows.map(r => r.join(",")).join("\n");
-                const b = new Blob([csv], {type:'text/csv'});
+                // Properly quote CSV fields to handle commas, quotes, and newlines in content
+                const csvEscape = (val) => {
+                    const str = (val === null || val === undefined) ? '' : String(val);
+                    return `"${str.replace(/"/g, '""')}"`;
+                };
+                const rows = [["ID","Type","Date","Title","Description","Lat","Lng","URL"].map(csvEscape)];
+                exportItems.forEach(i => rows.push([
+                    i.id, i.type, i.dateString, i.title||'',
+                    i.detailedDesc || i.text || '',
+                    i.lat||'', i.lng||'', i.url||''
+                ].map(csvEscape)));
+                const b = new Blob([rows.map(r => r.join(",")).join("\n")], {type:'text/csv'});
                 const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = `${state.project}.csv`;
-                a.click();
+                a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
             }
 
             async genZip() { this._zipHelper(state.items.filter(i => i.type==='photo' && !state.excludedReportItems.has(i.id)), 'Photos'); }
@@ -2068,32 +1653,29 @@
                 if(!list.length) return showToast("No items selected");
                 toggleLoader(true, "Zipping...");
                 const zip = new JSZip();
-                for(const i of list) {
+                // Fetch all blobs in parallel
+                await Promise.all(list.map(async (i) => {
                     try {
                         const u = isRaw ? await getDownloadURL(ref(state.storage, i.rawStoragePath)) : i.url;
                         const b = await (await fetch(u)).blob();
                         zip.file(`${i.projectId}_${i.id}${isRaw?'_RAW':''}.jpg`, b);
-                    } catch(e){}
-                }
+                    } catch(e) { console.warn('Skipping file in zip', i.id, e); }
+                }));
                 const c = await zip.generateAsync({type:"blob"});
-                const a = document.createElement('a'); a.href = URL.createObjectURL(c); a.download = `${state.project}_${name}.zip`;
-                a.click();
+                const a = document.createElement('a'); a.href = URL.createObjectURL(c); a.download = `${state.project}_${name}.zip`; a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 10000);
                 toggleLoader(false);
             }
 
             urlToBase64(url) {
                 return new Promise((r, j) => {
                     const img = new Image(); img.crossOrigin='Anonymous';
-                    img.onload = () => {
-                        const c = document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight;
-                        c.getContext('2d').drawImage(img,0,0); r(c.toDataURL('image/jpeg'));
-                    };
+                    img.onload = () => { const c = document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext('2d').drawImage(img,0,0); r(c.toDataURL('image/jpeg')); };
                     img.onerror = j; img.src = url;
                 });
             }
         }
 
-        // Initialize
         window.onload = () => { window.app = new FieldApp(); };
     </script>
 </body>
