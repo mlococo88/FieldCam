@@ -93,7 +93,7 @@
         <!-- TAB 1: INSPECT -->
         <div id="tab-inspect" class="tab-content active p-4 space-y-4">
             <div class="grid grid-cols-3 gap-3">
-                <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+                <div onclick="window.app.requestGPS()" class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition active:scale-95">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">GPS</div>
                     <div id="gps-val" class="text-xs font-mono font-bold text-slate-600 truncate w-full">Waiting...</div>
                 </div>
@@ -108,7 +108,7 @@
                         <span id="compass-val" class="text-xs font-mono font-bold text-slate-600">Off</span>
                     </div>
                 </div>
-                <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center">
+                <div onclick="window.app.retryWeather()" class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition active:scale-95">
                     <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Wx</div>
                     <div id="wx-val" class="text-xs font-medium text-slate-600 truncate w-full">--</div>
                 </div>
@@ -633,22 +633,73 @@
             }
 
             initSensors() {
-                if(navigator.geolocation) {
-                    navigator.geolocation.watchPosition(p => {
+                this.startGPS();
+                window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
+            }
+
+            startGPS() {
+                if (!navigator.geolocation) {
+                    this.setGPSError("Not supported");
+                    return;
+                }
+
+                // Warn if not HTTPS — iOS Safari blocks geolocation on http:// and file://
+                if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+                    this.setGPSError("Needs HTTPS");
+                    $('gps-val').title = "iOS requires HTTPS for location access";
+                    return;
+                }
+
+                $('gps-val').innerText = "Locating…";
+                $('gps-val').className = "text-xs font-mono font-bold text-slate-400 truncate w-full";
+
+                navigator.geolocation.watchPosition(
+                    (p) => {
                         state.location = { lat: p.coords.latitude, lng: p.coords.longitude };
                         $('gps-val').innerText = `${p.coords.latitude.toFixed(5)}, ${p.coords.longitude.toFixed(5)}`;
                         $('gps-val').className = "text-xs font-mono font-bold text-green-600 truncate w-full";
-                        // Fetch weather on first fix, then refresh every 30 minutes
+                        $('gps-val').title = `Accuracy: ±${Math.round(p.coords.accuracy)}m`;
+                        // Fetch weather on first fix then every 30 min
                         const now = Date.now();
-                        if(!state.weather.lastFetch || (now - state.weather.lastFetch) > 30 * 60 * 1000) {
+                        if (!state.weather.lastFetch || (now - state.weather.lastFetch) > 30 * 60 * 1000) {
                             this.fetchWeather(p.coords.latitude, p.coords.longitude);
                         }
-                    }, () => {
-                        $('gps-val').innerText = "No Signal";
-                        $('gps-val').className = "text-xs font-mono font-bold text-red-500 truncate w-full";
-                    }, { enableHighAccuracy: true });
+                    },
+                    (err) => {
+                        // Surface the actual iOS error so the user knows what to do
+                        const msgs = {
+                            1: "Permission denied", // User or iOS Settings blocked it
+                            2: "No signal",         // GPS hardware unavailable
+                            3: "Timed out"          // Took too long — common indoors
+                        };
+                        this.setGPSError(msgs[err.code] || "Unavailable");
+                        if (err.code === 1) {
+                            // Permission denied — tap the GPS tile to see instructions
+                            $('gps-val').title = "Go to Settings → Privacy → Location Services → Safari → Allow";
+                        }
+                    },
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 15000,      // give up after 15s and report error instead of hanging
+                        maximumAge: 10000    // accept a cached position up to 10s old to speed up first fix
+                    }
+                );
+            }
+
+            setGPSError(msg) {
+                $('gps-val').innerText = msg;
+                $('gps-val').className = "text-xs font-mono font-bold text-red-500 truncate w-full";
+            }
+
+            requestGPS() {
+                // Tapping the GPS tile retries — useful after a permission denial or timeout
+                if (state.location) {
+                    // Already have a fix — show current coords and accuracy in a toast
+                    showToast(`GPS active: ${state.location.lat.toFixed(5)}, ${state.location.lng.toFixed(5)}`);
+                } else {
+                    showToast("Retrying GPS…");
+                    this.startGPS();
                 }
-                window.addEventListener('deviceorientation', (e) => this.handleOrientation(e));
             }
 
             toggleForceOffline() {
@@ -771,17 +822,36 @@
             }
 
             async fetchWeather(lat, lng) {
+                $('wx-val').innerText = "Fetching…";
                 try {
-                    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&temperature_unit=fahrenheit`);
+                    const r = await fetch(
+                        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current_weather=true&temperature_unit=fahrenheit`,
+                        { signal: AbortSignal.timeout(8000) } // don't hang forever on poor signal
+                    );
+                    if (!r.ok) throw new Error(`HTTP ${r.status}`);
                     const d = await r.json();
-                    if(d.current_weather) {
+                    if (d.current_weather) {
                         const code = d.current_weather.weathercode;
                         const temp = d.current_weather.temperature;
                         const desc = code === 0 ? "Clear" : code < 4 ? "Cloudy" : code < 50 ? "Fog" : "Precip";
                         state.weather = { temp: `${temp}°F`, desc, lastFetch: Date.now() };
                         $('wx-val').innerText = `${desc}, ${temp}°F`;
+                    } else {
+                        throw new Error("No weather data");
                     }
-                } catch(e) {}
+                } catch(e) {
+                    $('wx-val').innerText = "Tap to retry";
+                    $('wx-val').className = "text-xs font-medium text-red-400 truncate w-full";
+                    console.warn("Weather fetch failed:", e.message);
+                }
+            }
+
+            retryWeather() {
+                if (state.location) {
+                    this.fetchWeather(state.location.lat, state.location.lng);
+                } else {
+                    showToast("Waiting for GPS first…");
+                }
             }
 
             switchTab(id) {
