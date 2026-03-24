@@ -140,7 +140,7 @@
                             <i data-lucide="image" class="w-5 h-5"></i>
                         </div>
                         <span class="text-xs font-bold text-indigo-900">Gallery</span>
-                        <input type="file" id="gallery-input" accept="image/*" class="hidden">
+                        <input type="file" id="gallery-input" accept="image/*" multiple class="hidden">
                     </label>
                     <button onclick="window.app.openSketch()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-purple-50 hover:bg-purple-100 rounded-xl p-4 border-2 border-dashed border-purple-200 transition active:scale-95 h-28">
                         <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
@@ -919,7 +919,55 @@
 
             bindEvents() {
                 $('camera-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], false));
-                $('gallery-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], true));
+                $('gallery-input').addEventListener('change', (e) => {
+                    const files = Array.from(e.target.files);
+                    if (files.length === 0) return;
+                    if (files.length === 1) {
+                        // Single file — normal caption modal flow with EXIF extraction
+                        this.handleFileSelect(files[0], true);
+                    } else {
+                        // Multiple files — load into queue and open batch caption modal
+                        this.handleGalleryBatch(files);
+                    }
+                    $('gallery-input').value = ''; // reset so same files can be re-selected
+                });
+            }
+
+            async handleGalleryBatch(files) {
+                toggleLoader(true, `Reading ${files.length} photos…`);
+                try {
+                    for (const file of files) {
+                        let processedFile = file;
+                        // Convert HEIC if needed
+                        if (file.type === 'image/heic' || (file.name && file.name.toLowerCase().endsWith('.heic'))) {
+                            try {
+                                const jpgBlob = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+                                const name = file.name.replace(/\.[^/.]+$/, '') + '.jpg';
+                                processedFile = new File([jpgBlob], name, { type: 'image/jpeg' });
+                            } catch(e) {
+                                console.warn('HEIC conversion failed for', file.name, e);
+                                continue; // skip this file rather than crashing the whole batch
+                            }
+                        }
+                        // Extract EXIF for each file so GPS/date metadata is preserved
+                        const exifData = await this.extractExif(processedFile);
+                        const id = Date.now().toString() + '_' + Math.random().toString(36).slice(2, 6);
+                        state.queue.push({
+                            blob: processedFile,
+                            id,
+                            timestamp: exifData.timestamp || Date.now(),
+                            exifLat: exifData.lat,
+                            exifLng: exifData.lng
+                        });
+                    }
+                } finally {
+                    toggleLoader(false);
+                }
+
+                if (state.queue.length === 0) return showToast('No valid photos found');
+                showToast(`${state.queue.length} photos ready`);
+                // Re-use the existing batch caption modal
+                this.openBatchCaptionModal();
             }
 
             handleFileSelect(file, isGallery, type = 'photo') {
@@ -1129,8 +1177,15 @@
                     try {
                         for (const [idx, item] of state.queue.entries()) {
                             currentMax++;
+                            // Use per-item EXIF location if present (gallery batch), else live GPS
+                            if (item.exifLat && item.exifLng) {
+                                state.tempMeta = { timestamp: item.timestamp, lat: item.exifLat, lng: item.exifLng };
+                            } else {
+                                state.tempMeta = null;
+                            }
                             const meta = this.createMeta(item.id, item.timestamp, null, currentMax);
                             meta.type = 'photo';
+                            state.tempMeta = null; // clear after use
                             toggleLoader(true, `Uploading ${idx+1} of ${count}…`);
                             if (!state.online) {
                                 await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
