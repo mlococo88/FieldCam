@@ -105,7 +105,7 @@
             </div>
         </div>
         <div class="flex items-center gap-3">
-            <div id="outbox-badge" class="hidden flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold animate-pulse cursor-pointer" onclick="window.app.syncOutbox()">
+            <div id="outbox-badge" class="hidden flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold animate-pulse cursor-pointer" onclick="window.app.openOutboxViewer()">
                 <i data-lucide="upload-cloud" class="w-3 h-3"></i> <span id="outbox-count">0</span>
             </div>
             <div id="status-indicator" class="w-3 h-3 rounded-full bg-slate-300 ring-2 ring-white shadow-sm transition-colors duration-300"></div>
@@ -376,6 +376,163 @@
         </div>
     </div>
 
+    <!-- MODAL: SERIES QUEUE REVIEW -->
+    <div id="modal-queue" class="fixed inset-0 z-[55] bg-black/90 hidden flex flex-col fade-in">
+        <div class="bg-white flex flex-col h-full max-h-full">
+
+            <!-- Header -->
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
+                <div>
+                    <h2 class="font-bold text-slate-800">Review Series</h2>
+                    <p id="queue-subtitle" class="text-xs text-slate-400 mt-0.5"></p>
+                </div>
+                <button onclick="window.app.cancelQueue()" class="p-1.5 rounded-full hover:bg-slate-200 text-slate-500">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <!-- Caption mode toggle -->
+            <div class="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white flex-none">
+                <span class="text-xs font-bold text-slate-600">Caption mode</span>
+                <div class="flex bg-slate-100 rounded-lg p-0.5 text-xs font-bold">
+                    <button id="caption-mode-all" onclick="window.app.setCaptionMode('all')"
+                        class="px-3 py-1.5 rounded-md transition bg-white shadow text-slate-800">
+                        Same for all
+                    </button>
+                    <button id="caption-mode-each" onclick="window.app.setCaptionMode('each')"
+                        class="px-3 py-1.5 rounded-md transition text-slate-500 hover:text-slate-700">
+                        Caption each
+                    </button>
+                </div>
+            </div>
+
+            <!-- Shared caption (shown in "same for all" mode) -->
+            <div id="queue-shared-caption" class="px-4 pt-3 pb-2 border-b border-slate-100 flex-none space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                    <div class="flex gap-2">
+                        <button id="queue-use-last-btn" onclick="window.app.useLastCaptionQueue()" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Use Last</button>
+                        <button onclick="$('queue-title').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                    </div>
+                </div>
+                <input type="text" id="queue-title" placeholder="e.g. South Abutment" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)">
+                <div class="flex justify-between items-center">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                    <button onclick="$('queue-desc').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                </div>
+                <textarea id="queue-desc" rows="2" placeholder="Optional details..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
+            </div>
+
+            <!-- Photo grid / list -->
+            <div id="queue-grid" class="flex-1 overflow-y-auto p-3 grid grid-cols-3 gap-2 content-start"></div>
+
+            <!-- Footer actions -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex-none pb-safe space-y-2">
+                <!-- Upload progress bar (hidden until upload starts) -->
+                <div id="queue-progress-wrap" class="hidden">
+                    <div class="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
+                        <span id="queue-progress-label">Uploading...</span>
+                        <button onclick="window.app.pauseQueueUpload()" id="queue-pause-btn"
+                            class="text-orange-600 hover:text-orange-800">Pause</button>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2">
+                        <div id="queue-progress-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-300" style="width:0%"></div>
+                    </div>
+                </div>
+                <!-- Action buttons -->
+                <div id="queue-action-btns" class="flex gap-2">
+                    <button onclick="window.app.addMoreToQueue()" class="flex items-center gap-1.5 px-3 py-2.5 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-50 flex-none">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                        Add More
+                    </button>
+                    <button onclick="window.app.uploadQueue()" id="queue-upload-btn"
+                        class="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
+                        Upload All
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: PER-PHOTO CAPTION (used in "caption each" mode) -->
+    <div id="modal-per-photo" class="fixed inset-0 z-[60] bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
+        <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
+            <div class="relative bg-slate-100 flex-none h-52 flex items-center justify-center border-b border-slate-200">
+                <img id="per-photo-img" class="max-h-full max-w-full object-contain">
+                <div id="per-photo-counter" class="absolute top-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-1 rounded-full"></div>
+            </div>
+            <div class="p-4 flex-1 overflow-y-auto space-y-3">
+                <div class="flex justify-between items-center">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                    <div class="flex gap-2">
+                        <button onclick="window.app.useLastCaptionPerPhoto()" id="per-photo-use-last" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Use Last</button>
+                        <button onclick="$('per-photo-title').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                    </div>
+                </div>
+                <input type="text" id="per-photo-title" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)">
+                <div class="flex justify-between items-center">
+                    <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                    <button onclick="$('per-photo-desc').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                </div>
+                <textarea id="per-photo-desc" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
+            </div>
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
+                <button onclick="window.app.perPhotoBack()" id="per-photo-back-btn" class="px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Back</button>
+                <button onclick="window.app.perPhotoNext()" id="per-photo-next-btn" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Next →</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: OUTBOX VIEWER -->
+    <div id="modal-outbox" class="fixed inset-0 z-50 bg-black/80 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in">
+        <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl">
+
+            <!-- Header -->
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
+                <div>
+                    <h3 class="font-bold text-slate-800">Pending Uploads</h3>
+                    <p id="outbox-viewer-subtitle" class="text-[11px] text-slate-400 mt-0.5"></p>
+                </div>
+                <button onclick="document.getElementById('modal-outbox').classList.add('hidden')" class="p-1.5 rounded-full hover:bg-slate-200 text-slate-500">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <!-- Storage quota bar -->
+            <div id="outbox-quota-wrap" class="px-4 pt-3 pb-0 flex-none hidden">
+                <div class="flex justify-between text-[10px] font-bold mb-1">
+                    <span class="text-slate-500 uppercase">Device Storage</span>
+                    <span id="outbox-quota-text" class="text-slate-400"></span>
+                </div>
+                <div class="w-full bg-slate-200 rounded-full h-1.5 mb-3">
+                    <div id="outbox-quota-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-500" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Items list -->
+            <div id="outbox-list" class="flex-1 overflow-y-auto divide-y divide-slate-100"></div>
+
+            <!-- Footer -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex-none pb-safe space-y-2">
+                <div class="flex gap-2">
+                    <button onclick="window.app.syncOutbox(false)" id="outbox-sync-btn"
+                        class="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        Sync Now
+                    </button>
+                    <button onclick="window.app.retryFailedItems()" id="outbox-retry-btn"
+                        class="hidden px-4 py-2.5 bg-orange-100 text-orange-700 font-bold rounded-xl text-sm hover:bg-orange-200 active:scale-95 transition">
+                        Retry Failed
+                    </button>
+                    <button onclick="window.app.clearFailedItems()" id="outbox-clear-btn"
+                        class="hidden px-4 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100 active:scale-95 transition">
+                        Clear Failed
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: EXPORT -->
     <div id="export-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4 fade-in">
         <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
@@ -612,6 +769,9 @@
         }
 
         // ── OFFLINE MANAGER (IndexedDB) ─────────────────────────────────────
+        const MAX_RETRY = 5;          // mark as failed after this many attempts
+        const QUOTA_WARN_BYTES = 200 * 1024 * 1024; // warn if < 200MB free
+
         class OfflineManager {
             constructor() {
                 this.dbName = 'FieldNotesDB';
@@ -619,65 +779,163 @@
                 this.db = null;
                 this.initDB();
             }
+
             initDB() {
-                const req = indexedDB.open(this.dbName, 1);
+                const req = indexedDB.open(this.dbName, 2); // bumped to v2 for schema update
                 req.onupgradeneeded = (e) => {
                     const db = e.target.result;
-                    if(!db.objectStoreNames.contains(this.storeName))
+                    if (!db.objectStoreNames.contains(this.storeName)) {
                         db.createObjectStore(this.storeName, { keyPath: 'id' });
+                    }
+                    // v2: no structural change needed — new fields added at write time
                 };
-                req.onsuccess = (e) => { this.db = e.target.result; this.updateOutboxCount(); };
+                req.onsuccess = (e) => { this.db = e.target.result; this.updateOutboxBadge(); };
                 req.onerror = (e) => {
                     console.error("IndexedDB failed to open:", e.target.error);
-                    // Show a persistent warning — offline saving won't work
                     const badge = document.getElementById('outbox-badge');
                     if (badge) {
-                        badge.classList.remove('hidden');
-                        badge.classList.remove('animate-pulse');
-                        badge.style.background = '#fef2f2';
-                        badge.style.color = '#dc2626';
+                        badge.classList.remove('hidden', 'animate-pulse');
+                        Object.assign(badge.style, { background:'#fef2f2', color:'#dc2626', fontSize:'9px' });
                         badge.innerHTML = '⚠ Offline storage unavailable';
-                        badge.style.fontSize = '9px';
-                        badge.onclick = () => alert('Offline storage is unavailable in this browser mode.\n\nThis usually happens in Private/Incognito mode or when storage is full.\n\nPhotos will still upload when online, but cannot be queued for later.');
+                        badge.onclick = () => alert('Offline storage is unavailable.\n\nThis usually happens in Private/Incognito mode or when storage is full.\n\nPhotos will still upload when online but cannot be queued for later.');
                     }
                 };
             }
+
+            // ── Wait for DB ready ───────────────────────────────────────────
+            async _ready() {
+                if (this.db) return true;
+                await new Promise(resolve => {
+                    const check = setInterval(() => { if (this.db) { clearInterval(check); resolve(); } }, 100);
+                    setTimeout(() => { clearInterval(check); resolve(); }, 3000);
+                });
+                return !!this.db;
+            }
+
+            // ── Storage quota check ─────────────────────────────────────────
+            async checkQuota() {
+                if (!navigator.storage?.estimate) return { ok: true };
+                try {
+                    const { usage, quota } = await navigator.storage.estimate();
+                    const free = quota - usage;
+                    return { ok: free > QUOTA_WARN_BYTES, free, quota, usage };
+                } catch(e) { return { ok: true }; }
+            }
+
+            // ── Add with full metadata ──────────────────────────────────────
             async addToOutbox(item) {
-                // Wait up to 3s for IndexedDB to be ready before giving up
-                if (!this.db) {
-                    await new Promise((resolve) => {
-                        const check = setInterval(() => { if (this.db) { clearInterval(check); resolve(); } }, 100);
-                        setTimeout(() => { clearInterval(check); resolve(); }, 3000);
-                    });
+                if (!await this._ready()) {
+                    console.error("IndexedDB unavailable — item lost", item.id);
+                    return;
                 }
-                if (!this.db) { console.error("IndexedDB unavailable — item lost", item.id); return; }
+
+                // Storage quota warning
+                const quota = await this.checkQuota();
+                if (!quota.ok) {
+                    const freeMB = Math.round(quota.free / 1024 / 1024);
+                    showToast(`⚠ Low storage: ${freeMB}MB free — photo saved but sync may fail`, 5000);
+                }
+
+                // Stamp metadata if not already present (first save)
+                if (!item.savedAt) item.savedAt = Date.now();
+                if (!item.retryCount) item.retryCount = 0;
+                if (!item.status) item.status = 'pending'; // 'pending' | 'failed'
+                item.lastAttempt = null;
+                item.lastError = null;
+
+                // Duplicate guard — don't queue same ID twice
+                const existing = await this._get(item.id);
+                if (existing) {
+                    console.warn("Outbox: item already queued", item.id);
+                    return;
+                }
+
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction([this.storeName], 'readwrite');
                     tx.objectStore(this.storeName).put(item);
-                    tx.oncomplete = () => { this.updateOutboxCount(); resolve(); };
-                    tx.onerror = (e) => reject(e);
+                    tx.oncomplete = () => { this.updateOutboxBadge(); resolve(); };
+                    tx.onerror = e => reject(e);
                 });
             }
+
+            // ── Update existing item (retry count, status, etc.) ────────────
+            async updateItem(id, changes) {
+                if (!await this._ready()) return;
+                const item = await this._get(id);
+                if (!item) return;
+                const updated = { ...item, ...changes };
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction([this.storeName], 'readwrite');
+                    tx.objectStore(this.storeName).put(updated);
+                    tx.oncomplete = () => { this.updateOutboxBadge(); resolve(); };
+                    tx.onerror = e => reject(e);
+                });
+            }
+
+            // ── Get single item ─────────────────────────────────────────────
+            async _get(id) {
+                if (!this.db) return null;
+                return new Promise(resolve => {
+                    const tx = this.db.transaction([this.storeName], 'readonly');
+                    const req = tx.objectStore(this.storeName).get(id);
+                    req.onsuccess = () => resolve(req.result || null);
+                    req.onerror = () => resolve(null);
+                });
+            }
+
+            // ── Get all items ───────────────────────────────────────────────
             async getOutbox() {
-                return new Promise((resolve) => {
-                    if(!this.db) return resolve([]);
+                return new Promise(resolve => {
+                    if (!this.db) return resolve([]);
                     const tx = this.db.transaction([this.storeName], 'readonly');
                     const req = tx.objectStore(this.storeName).getAll();
-                    req.onsuccess = () => resolve(req.result);
+                    req.onsuccess = () => resolve(req.result || []);
+                    req.onerror = () => resolve([]);
                 });
             }
+
+            // ── Remove single item ──────────────────────────────────────────
             async removeFromOutbox(id) {
-                return new Promise((resolve) => {
+                return new Promise(resolve => {
+                    if (!this.db) return resolve();
                     const tx = this.db.transaction([this.storeName], 'readwrite');
                     tx.objectStore(this.storeName).delete(id);
-                    tx.oncomplete = () => { this.updateOutboxCount(); resolve(); };
+                    tx.oncomplete = () => { this.updateOutboxBadge(); resolve(); };
+                    tx.onerror = () => resolve();
                 });
             }
-            async updateOutboxCount() {
+
+            // ── Update badge with count + age ───────────────────────────────
+            async updateOutboxBadge() {
                 const items = await this.getOutbox();
                 const badge = $('outbox-badge');
-                if(items.length > 0) { badge.classList.remove('hidden'); $('outbox-count').innerText = items.length; }
-                else badge.classList.add('hidden');
+                if (!badge) return;
+
+                const pending = items.filter(i => i.status !== 'failed');
+                const failed = items.filter(i => i.status === 'failed');
+
+                if (items.length === 0) {
+                    badge.classList.add('hidden');
+                    return;
+                }
+
+                badge.classList.remove('hidden');
+                // Show failed items in red, pending in orange
+                if (failed.length > 0) {
+                    badge.className = 'flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold cursor-pointer';
+                    badge.innerHTML = `<span>⚠</span> <span id="outbox-count">${items.length}</span>`;
+                } else {
+                    badge.className = 'flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold animate-pulse cursor-pointer';
+                    badge.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> <span id="outbox-count">${pending.length}</span>`;
+                }
+
+                // Tooltip: age of oldest item
+                const oldest = items.reduce((a, b) => (a.savedAt < b.savedAt ? a : b));
+                const ageMs = Date.now() - oldest.savedAt;
+                const ageStr = ageMs < 60000 ? 'just now'
+                    : ageMs < 3600000 ? `${Math.round(ageMs/60000)}m ago`
+                    : `${Math.round(ageMs/3600000)}h ago`;
+                badge.title = `${items.length} pending — oldest saved ${ageStr}. Tap to view.`;
             }
         }
 
@@ -700,6 +958,11 @@
                 window.addEventListener('online', () => this.updateConnectionStatus(true));
                 window.addEventListener('offline', () => this.updateConnectionStatus(false));
                 this.updateConnectionStatus(navigator.onLine);
+
+                // Periodic background sync — every 60s, silent, no UI disruption
+                setInterval(() => {
+                    if (state.online && !state.forcedOffline) this.syncOutbox(true);
+                }, 60000);
             }
 
             // ── NEW: User-configurable timeout ──────────────────────────────
@@ -834,48 +1097,224 @@
                 const effectiveOnline = navigator.onLine && !state.forcedOffline;
                 state.online = effectiveOnline;
                 $('status-indicator').className = `w-3 h-3 rounded-full ring-2 ring-white shadow-sm transition-colors duration-300 ${effectiveOnline ? 'bg-green-500' : 'bg-orange-500'}`;
-                if(effectiveOnline) this.syncOutbox();
+                // Auto-sync silently on reconnect — no blocking loader
+                if (effectiveOnline) this.syncOutbox(true);
             }
 
-            // ── SYNC OUTBOX with timeout ────────────────────────────────────
-            async syncOutbox() {
-                if(!state.online) return showToast("Still Offline");
-                const items = await this.offlineMgr.getOutbox();
-                if(items.length === 0) return;
+            // ── SYNC OUTBOX ─────────────────────────────────────────────────
+            // silent=true: no loader, no toast (used by background timer)
+            // silent=false: shows loader and result toast (used by manual "Sync Now")
+            async syncOutbox(silent = false) {
+                if (!state.online) {
+                    if (!silent) showToast("Still offline — items saved locally");
+                    return;
+                }
+                const items = (await this.offlineMgr.getOutbox())
+                    .filter(i => i.status !== 'failed'); // skip permanently failed items
+                if (items.length === 0) {
+                    if (!silent) showToast("Nothing to sync");
+                    return;
+                }
 
-                toggleLoader(true, `Syncing ${items.length} items...`);
+                if (!silent) toggleLoader(true, `Syncing ${items.length} items…`);
                 let successCount = 0;
+                let failCount = 0;
 
                 try {
-                    for(const item of items) {
-                        try {
-                            if(item.type === 'note') {
-                                await withUploadTimeout(
-                                    setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), item.meta),
-                                    getTimeoutMs()
-                                );
-                            } else {
-                                item.meta.type = item.type || 'photo';
-                                await withUploadTimeout(
-                                    this.uploadWorkflow(item.blob, item.meta, item.doOverlay),
-                                    getTimeoutMs()
-                                );
+                    // Process in parallel batches of 3
+                    const CONCURRENCY = 3;
+                    for (let i = 0; i < items.length; i += CONCURRENCY) {
+                        const chunk = items.slice(i, i + CONCURRENCY);
+                        await Promise.all(chunk.map(async (item) => {
+                            try {
+                                if (item.type === 'note') {
+                                    await withUploadTimeout(
+                                        setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), item.meta),
+                                        getTimeoutMs()
+                                    );
+                                } else {
+                                    item.meta.type = item.type || 'photo';
+                                    await withUploadTimeout(
+                                        this.uploadWorkflow(item.blob, item.meta, item.doOverlay),
+                                        getTimeoutMs()
+                                    );
+                                }
+                                await this.offlineMgr.removeFromOutbox(item.id);
+                                successCount++;
+                            } catch(e) {
+                                const newRetryCount = (item.retryCount || 0) + 1;
+                                const failed = newRetryCount >= MAX_RETRY;
+                                await this.offlineMgr.updateItem(item.id, {
+                                    retryCount: newRetryCount,
+                                    lastAttempt: Date.now(),
+                                    lastError: e.message || 'Unknown error',
+                                    status: failed ? 'failed' : 'pending'
+                                });
+                                if (failed) {
+                                    failCount++;
+                                    console.error(`Outbox item ${item.id} permanently failed after ${MAX_RETRY} attempts`);
+                                } else {
+                                    console.warn(`Outbox item ${item.id} failed (attempt ${newRetryCount}/${MAX_RETRY})`);
+                                }
                             }
-                            await this.offlineMgr.removeFromOutbox(item.id);
-                            successCount++;
-                        } catch(e) {
-                            if(e.message === 'UPLOAD_TIMEOUT') {
-                                console.warn("Sync timed out for item", item.id, "— will retry later");
-                            } else {
-                                console.error("Sync failed for item", item.id, e);
-                            }
-                        }
+                        }));
                     }
-                    if(successCount > 0) showToast(`Synced ${successCount} items`);
-                    else if(items.length > 0) showToast("Connection too slow — will retry later");
                 } finally {
-                    toggleLoader(false);
+                    if (!silent) toggleLoader(false);
                 }
+
+                // Update badge to reflect new state
+                await this.offlineMgr.updateOutboxBadge();
+
+                if (!silent) {
+                    if (successCount > 0 && failCount === 0) showToast(`✓ Synced ${successCount} item${successCount !== 1 ? 's' : ''}`);
+                    else if (successCount > 0) showToast(`${successCount} synced, ${failCount} failed — tap badge to view`);
+                    else if (failCount > 0) showToast(`Sync failed — tap badge to view details`, 4000);
+                    else showToast("Connection too slow — will retry automatically");
+                } else if (failCount > 0) {
+                    // Silent mode: still notify about permanent failures
+                    showToast(`${failCount} item${failCount !== 1 ? 's' : ''} failed to sync — tap badge`, 4000);
+                }
+
+                // Refresh outbox viewer if open
+                if (!$('modal-outbox').classList.contains('hidden')) this._renderOutboxViewer();
+            }
+
+            // ── OUTBOX VIEWER ────────────────────────────────────────────────
+            async openOutboxViewer() {
+                $('modal-outbox').classList.remove('hidden');
+                await this._renderOutboxViewer();
+                // Check storage quota while we're here
+                const quota = await this.offlineMgr.checkQuota();
+                const wrap = $('outbox-quota-wrap');
+                if (quota.quota) {
+                    const usedPct = Math.min(100, Math.round((quota.usage / quota.quota) * 100));
+                    const freeMB = Math.round(quota.free / 1024 / 1024);
+                    const totalMB = Math.round(quota.quota / 1024 / 1024);
+                    $('outbox-quota-text').innerText = `${freeMB}MB free of ${totalMB}MB`;
+                    const bar = $('outbox-quota-bar');
+                    bar.style.width = `${usedPct}%`;
+                    bar.className = `h-1.5 rounded-full transition-all duration-500 ${usedPct > 90 ? 'bg-red-500' : usedPct > 70 ? 'bg-orange-500' : 'bg-blue-500'}`;
+                    wrap.classList.remove('hidden');
+                }
+            }
+
+            async _renderOutboxViewer() {
+                const items = await this.offlineMgr.getOutbox();
+                const list = $('outbox-list');
+                const retryBtn = $('outbox-retry-btn');
+                const clearBtn = $('outbox-clear-btn');
+                const syncBtn = $('outbox-sync-btn');
+
+                const failed = items.filter(i => i.status === 'failed');
+                const pending = items.filter(i => i.status !== 'failed');
+
+                // Subtitle
+                const parts = [];
+                if (pending.length) parts.push(`${pending.length} pending`);
+                if (failed.length) parts.push(`${failed.length} failed`);
+                $('outbox-viewer-subtitle').innerText = parts.join(' · ') || 'All clear';
+
+                // Footer buttons
+                retryBtn.classList.toggle('hidden', failed.length === 0);
+                clearBtn.classList.toggle('hidden', failed.length === 0);
+                syncBtn.classList.toggle('hidden', pending.length === 0);
+
+                if (items.length === 0) {
+                    list.innerHTML = `
+                        <div class="flex flex-col items-center justify-center py-12 text-slate-400">
+                            <svg class="w-12 h-12 mb-3 text-slate-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            <p class="text-sm font-medium">All caught up</p>
+                            <p class="text-xs mt-1">No pending uploads</p>
+                        </div>`;
+                    return;
+                }
+
+                // Sort: failed last, then by savedAt oldest first
+                const sorted = [...items].sort((a, b) => {
+                    if (a.status === 'failed' && b.status !== 'failed') return 1;
+                    if (a.status !== 'failed' && b.status === 'failed') return -1;
+                    return (a.savedAt || 0) - (b.savedAt || 0);
+                });
+
+                list.innerHTML = '';
+                sorted.forEach(item => {
+                    const isFailed = item.status === 'failed';
+                    const ageMs = Date.now() - (item.savedAt || Date.now());
+                    const ageStr = ageMs < 60000 ? 'just now'
+                        : ageMs < 3600000 ? `${Math.round(ageMs/60000)}m ago`
+                        : ageMs < 86400000 ? `${Math.round(ageMs/3600000)}h ago`
+                        : `${Math.round(ageMs/86400000)}d ago`;
+
+                    const typeIcon = item.type === 'note'
+                        ? `<div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center text-xl flex-none">📝</div>`
+                        : `<div class="w-12 h-12 rounded-lg bg-slate-200 overflow-hidden flex-none relative">
+                               ${item.blob ? `<img src="${URL.createObjectURL(item.blob)}" class="w-full h-full object-cover" onerror="this.style.display='none'">` : ''}
+                               <div class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">📷</div>
+                           </div>`;
+
+                    const statusBadge = isFailed
+                        ? `<span class="text-[9px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">Failed ×${item.retryCount}</span>`
+                        : item.retryCount > 0
+                            ? `<span class="text-[9px] font-bold bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full">Retry ${item.retryCount}/${MAX_RETRY}</span>`
+                            : `<span class="text-[9px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">Pending</span>`;
+
+                    const title = item.meta?.title || item.meta?.caption || 'Untitled';
+                    const errorNote = (isFailed && item.lastError)
+                        ? `<p class="text-[10px] text-red-500 mt-0.5 truncate">${item.lastError}</p>` : '';
+
+                    const div = document.createElement('div');
+                    div.className = `flex items-center gap-3 p-3 ${isFailed ? 'bg-red-50' : 'bg-white'} hover:bg-slate-50 transition`;
+                    div.innerHTML = `
+                        ${typeIcon}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-1.5 mb-0.5">
+                                ${statusBadge}
+                                <span class="text-[10px] text-slate-400">${ageStr}</span>
+                            </div>
+                            <p class="text-sm font-bold text-slate-700 truncate">${title}</p>
+                            ${errorNote}
+                        </div>
+                        <button onclick="window.app.removeOutboxItem('${item.id}')"
+                            class="flex-none p-1.5 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 transition"
+                            title="Remove from outbox">
+                            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+                        </button>`;
+                    list.appendChild(div);
+                });
+            }
+
+            async removeOutboxItem(id) {
+                if (!confirm("Remove this item from the outbox? It will not be uploaded.")) return;
+                await this.offlineMgr.removeFromOutbox(id);
+                await this._renderOutboxViewer();
+                showToast("Item removed from outbox");
+            }
+
+            async retryFailedItems() {
+                const items = await this.offlineMgr.getOutbox();
+                const failed = items.filter(i => i.status === 'failed');
+                // Reset retry count and status so they get another chance
+                for (const item of failed) {
+                    await this.offlineMgr.updateItem(item.id, {
+                        status: 'pending',
+                        retryCount: 0,
+                        lastError: null,
+                        lastAttempt: null
+                    });
+                }
+                showToast(`${failed.length} item${failed.length !== 1 ? 's' : ''} reset — syncing…`);
+                await this._renderOutboxViewer();
+                this.syncOutbox(false);
+            }
+
+            async clearFailedItems() {
+                const items = await this.offlineMgr.getOutbox();
+                const failed = items.filter(i => i.status === 'failed');
+                if (!confirm(`Permanently discard ${failed.length} failed item${failed.length !== 1 ? 's' : ''}?\n\nThese photos/notes will be lost.`)) return;
+                for (const item of failed) await this.offlineMgr.removeFromOutbox(item.id);
+                await this._renderOutboxViewer();
+                showToast(`${failed.length} item${failed.length !== 1 ? 's' : ''} discarded`);
             }
 
             async initFirebase() {
@@ -1264,16 +1703,33 @@
                     btn.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
                     txt.innerText = "Active (0)";
                 } else {
-                    if(state.queue.length > 0) this.openBatchCaptionModal();
                     btn.classList.add('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
                     btn.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
                     txt.innerText = "Series Mode";
-                    $('series-cam-badge').classList.add('hidden'); // #10 clear badge
+                    $('series-cam-badge').classList.add('hidden');
+                    if (state.queue.length > 0) {
+                        this.openQueueReview(); // #1 new queue review screen
+                    } else {
+                        showToast("Series cancelled — no photos queued"); // #4
+                    }
                 }
             }
 
             addToQueue(blob, id) {
-                state.queue.push({ blob, id, timestamp: Date.now() });
+                // #5 snapshot GPS at capture time, not upload time
+                const capturedLat = state.location?.lat || null;
+                const capturedLng = state.location?.lng || null;
+                const capturedHeading = state.heading;
+                const capturedWeather = { ...state.weather };
+
+                state.queue.push({
+                    blob, id,
+                    timestamp: Date.now(),
+                    lat: capturedLat,
+                    lng: capturedLng,
+                    heading: capturedHeading,
+                    weather: capturedWeather
+                });
                 const count = state.queue.length;
                 $('series-text').innerText = `Active (${count})`;
                 // #10 live count badge on camera button
@@ -1284,6 +1740,333 @@
                 showToast(`Photo ${count} queued`);
             }
 
+            // ── QUEUE REVIEW SYSTEM (#1 #2 #3 #6 #7) ─────────────────────────
+
+            openQueueReview() {
+                state._captionMode = state._captionMode || 'all'; // persist mode between sessions
+                state._uploadPaused = false;
+                this._renderQueueGrid();
+                this._updateQueueSubtitle();
+
+                // Show Use Last button if applicable
+                const ulBtn = $('queue-use-last-btn');
+                if (state.lastCaption.title || state.lastCaption.desc) {
+                    ulBtn.classList.remove('hidden');
+                } else {
+                    ulBtn.classList.add('hidden');
+                }
+
+                // Pre-fill shared caption with last used
+                $('queue-title').value = '';
+                $('queue-desc').value = '';
+                $('queue-progress-wrap').classList.add('hidden');
+                $('queue-action-btns').classList.remove('hidden');
+                $('queue-upload-btn').innerText = `Upload ${state.queue.length} Photo${state.queue.length !== 1 ? 's' : ''}`;
+                this.setCaptionMode(state._captionMode);
+                $('modal-queue').classList.remove('hidden');
+                lucide.createIcons();
+            }
+
+            _renderQueueGrid() {
+                const grid = $('queue-grid');
+                grid.innerHTML = '';
+                state.queue.forEach((item, idx) => {
+                    const div = document.createElement('div');
+                    div.className = 'relative rounded-xl overflow-hidden bg-slate-200 aspect-square shadow-sm';
+                    div.id = `queue-item-${item.id}`;
+                    // Thumbnail
+                    const img = document.createElement('img');
+                    try { img.src = URL.createObjectURL(item.blob); } catch(e) {}
+                    img.className = 'w-full h-full object-cover';
+                    img.onerror = () => img.style.display = 'none';
+                    // Number badge
+                    const num = document.createElement('div');
+                    num.className = 'absolute top-1 left-1 bg-black/60 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full';
+                    num.innerText = `#${idx + 1}`;
+                    // GPS dot
+                    const gpsDot = document.createElement('div');
+                    gpsDot.className = `absolute top-1 right-1 w-2 h-2 rounded-full border border-white ${item.lat ? 'bg-green-400' : 'bg-red-400'}`;
+                    gpsDot.title = item.lat ? `GPS: ${item.lat.toFixed(5)}, ${item.lng.toFixed(5)}` : 'No GPS';
+                    // Remove button
+                    const del = document.createElement('button');
+                    del.className = 'absolute bottom-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center shadow text-xs font-bold hover:bg-red-700 active:scale-95';
+                    del.innerHTML = '✕';
+                    del.onclick = (e) => { e.stopPropagation(); this.removeFromQueue(item.id); };
+                    // Per-photo caption indicator (shown in "caption each" mode)
+                    const capBadge = document.createElement('div');
+                    capBadge.className = 'queue-cap-badge absolute bottom-1 left-1 bg-blue-600 text-white text-[8px] font-bold px-1 py-0.5 rounded hidden';
+                    capBadge.innerText = 'Captioned';
+                    if (item.perPhotoTitle || item.perPhotoDesc) capBadge.classList.remove('hidden');
+                    div.appendChild(img); div.appendChild(num); div.appendChild(gpsDot);
+                    div.appendChild(del); div.appendChild(capBadge);
+                    grid.appendChild(div);
+                });
+                this._updateQueueSubtitle();
+            }
+
+            _updateQueueSubtitle() {
+                const count = state.queue.length;
+                const withGPS = state.queue.filter(i => i.lat).length;
+                $('queue-subtitle').innerText = `${count} photo${count !== 1 ? 's' : ''} · ${withGPS} with GPS`;
+                $('queue-upload-btn').innerText = `Upload ${count} Photo${count !== 1 ? 's' : ''}`;
+            }
+
+            removeFromQueue(id) {
+                const idx = state.queue.findIndex(i => i.id === id);
+                if (idx === -1) return;
+                // Revoke blob URL if we created one
+                const item = state.queue[idx];
+                state.queue.splice(idx, 1);
+                if (state.queue.length === 0) {
+                    $('modal-queue').classList.add('hidden');
+                    showToast("All photos removed — queue cleared");
+                } else {
+                    this._renderQueueGrid();
+                }
+            }
+
+            cancelQueue() {
+                if (state.queue.length > 0 && !confirm(`Discard all ${state.queue.length} queued photos?`)) return;
+                state.queue = [];
+                state.batchMode = false;
+                $('modal-queue').classList.add('hidden');
+            }
+
+            // #3 — Add more photos without losing the queue
+            addMoreToQueue() {
+                $('modal-queue').classList.add('hidden');
+                // Re-activate series mode UI without clearing the queue
+                state.seriesMode = true;
+                const btn = $('series-btn'); const txt = $('series-text');
+                btn.classList.remove('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
+                btn.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
+                const count = state.queue.length;
+                txt.innerText = `Active (${count})`;
+                const badge = $('series-cam-badge');
+                badge.innerText = count; badge.classList.remove('hidden');
+                showToast(`Series active — ${count} queued. Keep shooting, tap button to finish.`);
+            }
+
+            // #2 — Caption mode toggle
+            setCaptionMode(mode) {
+                state._captionMode = mode;
+                const sharedDiv = $('queue-shared-caption');
+                const allBtn = $('caption-mode-all');
+                const eachBtn = $('caption-mode-each');
+                if (mode === 'all') {
+                    sharedDiv.classList.remove('hidden');
+                    allBtn.classList.add('bg-white', 'shadow', 'text-slate-800');
+                    allBtn.classList.remove('text-slate-500');
+                    eachBtn.classList.remove('bg-white', 'shadow', 'text-slate-800');
+                    eachBtn.classList.add('text-slate-500');
+                } else {
+                    sharedDiv.classList.add('hidden');
+                    eachBtn.classList.add('bg-white', 'shadow', 'text-slate-800');
+                    eachBtn.classList.remove('text-slate-500');
+                    allBtn.classList.remove('bg-white', 'shadow', 'text-slate-800');
+                    allBtn.classList.add('text-slate-500');
+                }
+            }
+
+            useLastCaptionQueue() {
+                $('queue-title').value = state.lastCaption.title || '';
+                $('queue-desc').value = state.lastCaption.desc || '';
+                showToast('Last caption applied');
+            }
+
+            // #2 — Per-photo caption flow
+            _perPhotoIdx = 0;
+
+            startPerPhotoCaptions() {
+                this._perPhotoIdx = 0;
+                this._showPerPhotoCaption();
+            }
+
+            _showPerPhotoCaption() {
+                const item = state.queue[this._perPhotoIdx];
+                if (!item) { this._finishPerPhotoCaptions(); return; }
+                const total = state.queue.length;
+                try {
+                    const prev = $('per-photo-img').src;
+                    if (prev && prev.startsWith('blob:')) URL.revokeObjectURL(prev);
+                    $('per-photo-img').src = URL.createObjectURL(item.blob);
+                } catch(e) {}
+                $('per-photo-title').value = item.perPhotoTitle || $('queue-title').value || '';
+                $('per-photo-desc').value = item.perPhotoDesc || $('queue-desc').value || '';
+                $('per-photo-counter').innerText = `${this._perPhotoIdx + 1} / ${total}`;
+                $('per-photo-back-btn').disabled = this._perPhotoIdx === 0;
+                $('per-photo-back-btn').classList.toggle('opacity-40', this._perPhotoIdx === 0);
+                $('per-photo-next-btn').innerText = this._perPhotoIdx === total - 1 ? 'Done ✓' : 'Next →';
+                // Use Last button
+                const ulBtn = $('per-photo-use-last');
+                if (state.lastCaption.title || state.lastCaption.desc) ulBtn.classList.remove('hidden');
+                else ulBtn.classList.add('hidden');
+                $('modal-per-photo').classList.remove('hidden');
+            }
+
+            useLastCaptionPerPhoto() {
+                $('per-photo-title').value = state.lastCaption.title || '';
+                $('per-photo-desc').value = state.lastCaption.desc || '';
+            }
+
+            perPhotoNext() {
+                // Save caption to queue item
+                const item = state.queue[this._perPhotoIdx];
+                item.perPhotoTitle = $('per-photo-title').value.trim();
+                item.perPhotoDesc = $('per-photo-desc').value.trim();
+                // Update Last caption
+                if (item.perPhotoTitle || item.perPhotoDesc) {
+                    state.lastCaption = { title: item.perPhotoTitle, desc: item.perPhotoDesc };
+                }
+                if (this._perPhotoIdx === state.queue.length - 1) {
+                    this._finishPerPhotoCaptions();
+                } else {
+                    this._perPhotoIdx++;
+                    this._showPerPhotoCaption();
+                }
+            }
+
+            perPhotoBack() {
+                if (this._perPhotoIdx === 0) return;
+                const item = state.queue[this._perPhotoIdx];
+                item.perPhotoTitle = $('per-photo-title').value.trim();
+                item.perPhotoDesc = $('per-photo-desc').value.trim();
+                this._perPhotoIdx--;
+                this._showPerPhotoCaption();
+            }
+
+            _finishPerPhotoCaptions() {
+                $('modal-per-photo').classList.add('hidden');
+                // Refresh grid to show "Captioned" badges
+                this._renderQueueGrid();
+                // Start actual upload
+                this._runQueueUpload();
+            }
+
+            // Entry point for upload button
+            async uploadQueue() {
+                if (state._captionMode === 'each') {
+                    // Save shared caption as default, then step through each photo
+                    this.startPerPhotoCaptions();
+                } else {
+                    // Save shared caption then upload
+                    const title = $('queue-title').value.trim();
+                    const desc = $('queue-desc').value.trim();
+                    if (title || desc) state.lastCaption = { title, desc };
+                    this._runQueueUpload();
+                }
+            }
+
+            // #6 — Parallel upload with concurrency limit, #7 — pause/resume
+            async _runQueueUpload() {
+                const doOverlay = $('burn-toggle').checked;
+                const count = state.queue.length;
+                if (count === 0) return;
+
+                const sharedTitle = $('queue-title').value.trim();
+                const sharedDesc = $('queue-desc').value.trim();
+
+                state._uploadPaused = false;
+                state._uploadCancelled = false;
+
+                // Show progress UI
+                $('queue-progress-wrap').classList.remove('hidden');
+                $('queue-action-btns').classList.add('hidden');
+
+                // Calculate starting photo number
+                const existing = state.items.filter(i => i.type === 'photo');
+                let currentMax = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+
+                let completed = 0;
+                let savedOffline = 0;
+
+                const updateProgress = () => {
+                    const pct = Math.round((completed / count) * 100);
+                    $('queue-progress-bar').style.width = `${pct}%`;
+                    $('queue-progress-label').innerText = `Uploading ${completed} of ${count}…`;
+                };
+                updateProgress();
+
+                // #6 Process in parallel batches of 3
+                const CONCURRENCY = 3;
+                const items = state.queue.map((item, idx) => {
+                    currentMax++;
+                    // Build meta using per-photo or shared caption
+                    const title = (state._captionMode === 'each' && item.perPhotoTitle) ? item.perPhotoTitle : sharedTitle;
+                    const desc = (state._captionMode === 'each' && item.perPhotoDesc) ? item.perPhotoDesc : sharedDesc;
+                    const cap = (title && desc) ? `${title} - ${desc}` : (desc || title || 'No Caption');
+
+                    // #5 Use GPS snapshotted at capture time
+                    const meta = {
+                        id: item.id,
+                        projectId: state.project,
+                        timestamp: item.timestamp,
+                        dateString: formatDate(item.timestamp),
+                        title, detailedDesc: desc, caption: cap,
+                        lat: item.lat, lng: item.lng,
+                        heading: item.heading,
+                        weather: item.weather,
+                        photoNumber: currentMax,
+                        type: 'photo'
+                    };
+                    return { item, meta };
+                });
+
+                // Process in chunks of CONCURRENCY
+                for (let i = 0; i < items.length; i += CONCURRENCY) {
+                    // #7 Check for pause between chunks
+                    while (state._uploadPaused) {
+                        $('queue-progress-label').innerText = `Paused (${completed} of ${count} done)`;
+                        $('queue-pause-btn').innerText = 'Resume';
+                        await new Promise(r => setTimeout(r, 500));
+                        if (state._uploadCancelled) break;
+                    }
+                    if (state._uploadCancelled) break;
+                    $('queue-pause-btn').innerText = 'Pause';
+
+                    const chunk = items.slice(i, i + CONCURRENCY);
+                    await Promise.all(chunk.map(async ({ item, meta }) => {
+                        try {
+                            if (!state.online) {
+                                await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
+                                savedOffline++;
+                            } else {
+                                try {
+                                    await withUploadTimeout(this.uploadWorkflow(item.blob, meta, doOverlay), getTimeoutMs());
+                                } catch(e) {
+                                    await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
+                                    savedOffline++;
+                                }
+                            }
+                        } catch(e) {
+                            console.error('Queue upload error for', item.id, e);
+                        }
+                        completed++;
+                        updateProgress();
+                    }));
+                }
+
+                // Done
+                state.queue = [];
+                state.batchMode = false;
+                $('modal-queue').classList.add('hidden');
+                $('queue-progress-wrap').classList.add('hidden');
+                $('queue-action-btns').classList.remove('hidden');
+
+                const uploaded = completed - savedOffline;
+                if (savedOffline > 0 && uploaded > 0) showToast(`${uploaded} uploaded, ${savedOffline} saved offline`);
+                else if (savedOffline > 0) showToast(`Saved ${savedOffline} offline — will sync later`);
+                else showToast(`${completed} photos uploaded ✓`);
+                this.switchTab('report');
+            }
+
+            // #7 — Pause / resume
+            pauseQueueUpload() {
+                state._uploadPaused = !state._uploadPaused;
+                $('queue-pause-btn').innerText = state._uploadPaused ? 'Resume' : 'Pause';
+            }
+
+            // Legacy: openBatchCaptionModal now only used for gallery multi-select (not series mode)
             openBatchCaptionModal() {
                 const count = state.queue.length;
                 if (count === 0) return;
@@ -1301,7 +2084,6 @@
                 $('btn-save-upload').innerText = `Upload ${count} Photos`;
                 state.editMode = false;
                 state.batchMode = true;
-                // Show Use Last if available
                 const useLastBtn = $('use-last-btn');
                 if (state.lastCaption.title || state.lastCaption.desc) {
                     useLastBtn.classList.remove('hidden');
@@ -1389,7 +2171,7 @@
                 const descVal = $('cap-desc').value.trim();
                 if(titleVal || descVal) state.lastCaption = { title: titleVal, desc: descVal };
 
-                // BATCH MODE
+                // BATCH MODE (gallery multi-select only — series mode uses uploadQueue/runQueueUpload)
                 if (state.batchMode) {
                     const doOverlay = $('burn-toggle').checked;
                     const count = state.queue.length;
