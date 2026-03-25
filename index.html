@@ -1629,13 +1629,19 @@
 
                         if (lastPinchDist !== null) {
                             const scaleDelta = dist / lastPinchDist;
-                            const newScale = Math.min(5, Math.max(0.5, this._sketchScale * scaleDelta));
+                            const oldScale = this._sketchScale;
+                            const newScale = Math.min(5, Math.max(0.5, oldScale * scaleDelta));
 
-                            // Pan: follow the midpoint movement
-                            const panDX = mid.x - lastPinchMid.x;
-                            const panDY = mid.y - lastPinchMid.y;
-                            this._sketchPanX += panDX;
-                            this._sketchPanY += panDY;
+                            // Zoom around the midpoint on screen:
+                            // The point under the fingers (mid) must stay fixed.
+                            // new_pan = mid - (mid - old_pan) * (newScale / oldScale)
+                            this._sketchPanX = mid.x - (mid.x - this._sketchPanX) * (newScale / oldScale);
+                            this._sketchPanY = mid.y - (mid.y - this._sketchPanY) * (newScale / oldScale);
+
+                            // Also pan to follow midpoint movement
+                            this._sketchPanX += mid.x - lastPinchMid.x;
+                            this._sketchPanY += mid.y - lastPinchMid.y;
+
                             this._sketchScale = newScale;
                             this._applySketchTransform(canvas);
                         }
