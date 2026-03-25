@@ -37,6 +37,22 @@
         canvas { touch-action: none; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
 
+        /* ── Custom map popup styling ── */
+        .field-cam-popup .leaflet-popup-content-wrapper {
+            padding: 0;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+            border: none;
+        }
+        .field-cam-popup .leaflet-popup-content {
+            margin: 0;
+            line-height: 1.4;
+        }
+        .field-cam-popup .leaflet-popup-tip-container {
+            margin-top: -1px;
+        }
+
         /* ── Upload timeout countdown bar ── */
         #upload-timeout-bar {
             display: none;
@@ -348,6 +364,7 @@
                 <div class="w-px h-6 bg-slate-300 mx-1"></div>
                 <button onclick="window.app.toggleEraser()" id="btn-eraser" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition"><i data-lucide="eraser" class="w-5 h-5"></i></button>
                 <button onclick="window.app.undoSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
+                <button onclick="window.app.resetSketchZoom()" id="sketch-zoom-btn" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition text-[10px] font-bold leading-none min-w-[32px] text-center" title="Reset Zoom">1×</button>
             </div>
             <button onclick="window.app.saveSketch()" class="text-blue-600 font-bold text-sm">Done</button>
         </div>
@@ -1536,14 +1553,130 @@
                 const ctx = canvas.getContext('2d');
                 ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                this.bgImage = null; this.wbCtx = ctx; this.isDrawing = false; this.undoStack = [];
-                canvas.onpointerdown = (e) => { this.undoStack.push(canvas.toDataURL()); if(this.undoStack.length > this.undoLimit) this.undoStack.shift(); this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
-                canvas.onpointermove = (e) => { if(!this.isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.strokeStyle = $('sketch-color').value; ctx.lineWidth = $('sketch-size').value; ctx.stroke(); };
-                canvas.onpointerup = () => this.isDrawing = false;
-                canvas.onpointercancel = () => this.isDrawing = false; // handles phone calls, swipe gestures etc.
+                this.bgImage = null; this.wbCtx = ctx;
+                this.isDrawing = false; this.undoStack = [];
+
+                // Reset zoom/pan state
+                this._sketchScale = 1;
+                this._sketchPanX = 0;
+                this._sketchPanY = 0;
+                this._applySketchTransform(canvas);
+                this._bindSketchPointers(canvas, ctx);
+            }
+
+            _applySketchTransform(canvas) {
+                // Apply zoom + pan as CSS transform — canvas pixel buffer stays full-res
+                canvas.style.transformOrigin = '0 0';
+                canvas.style.transform = `translate(${this._sketchPanX}px, ${this._sketchPanY}px) scale(${this._sketchScale})`;
+                // Update zoom indicator button
+                const btn = $('sketch-zoom-btn');
+                if (btn) btn.innerText = this._sketchScale === 1 ? '1×' : `${this._sketchScale.toFixed(1)}×`;
+            }
+
+            _toCanvasCoords(canvas, clientX, clientY) {
+                // getBoundingClientRect gives the TRANSFORMED (on-screen) bounds,
+                // so dividing by the ratio converts screen → canvas pixel coords correctly
+                const rect = canvas.getBoundingClientRect();
+                return {
+                    x: (clientX - rect.left) * (canvas.width / rect.width),
+                    y: (clientY - rect.top) * (canvas.height / rect.height)
+                };
+            }
+
+            _bindSketchPointers(canvas, ctx) {
+                // Track all active pointers by ID
+                const activePointers = new Map();
+                let lastPinchDist = null;
+                let lastPinchMid = null;
+
+                const getDistance = (p1, p2) =>
+                    Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+
+                const getMidpoint = (p1, p2) => ({
+                    x: (p1.clientX + p2.clientX) / 2,
+                    y: (p1.clientY + p2.clientY) / 2
+                });
+
+                canvas.onpointerdown = (e) => {
+                    canvas.setPointerCapture(e.pointerId);
+                    activePointers.set(e.pointerId, e);
+
+                    if (activePointers.size === 1) {
+                        // Single finger — start drawing stroke
+                        this.undoStack.push(canvas.toDataURL());
+                        if (this.undoStack.length > this.undoLimit) this.undoStack.shift();
+                        this.isDrawing = true;
+                        const pos = this._toCanvasCoords(canvas, e.clientX, e.clientY);
+                        ctx.beginPath();
+                        ctx.moveTo(pos.x, pos.y);
+                    } else if (activePointers.size === 2) {
+                        // Second finger arrived — cancel drawing, start pinch/pan
+                        this.isDrawing = false;
+                        const ptrs = Array.from(activePointers.values());
+                        lastPinchDist = getDistance(ptrs[0], ptrs[1]);
+                        lastPinchMid = getMidpoint(ptrs[0], ptrs[1]);
+                    }
+                };
+
+                canvas.onpointermove = (e) => {
+                    activePointers.set(e.pointerId, e);
+
+                    if (activePointers.size === 2) {
+                        // ── PINCH TO ZOOM + TWO-FINGER PAN ──
+                        const ptrs = Array.from(activePointers.values());
+                        const dist = getDistance(ptrs[0], ptrs[1]);
+                        const mid = getMidpoint(ptrs[0], ptrs[1]);
+
+                        if (lastPinchDist !== null) {
+                            const scaleDelta = dist / lastPinchDist;
+                            const newScale = Math.min(5, Math.max(0.5, this._sketchScale * scaleDelta));
+
+                            // Pan: follow the midpoint movement
+                            const panDX = mid.x - lastPinchMid.x;
+                            const panDY = mid.y - lastPinchMid.y;
+                            this._sketchPanX += panDX;
+                            this._sketchPanY += panDY;
+                            this._sketchScale = newScale;
+                            this._applySketchTransform(canvas);
+                        }
+
+                        lastPinchDist = dist;
+                        lastPinchMid = mid;
+
+                    } else if (activePointers.size === 1 && this.isDrawing) {
+                        // ── SINGLE FINGER DRAW ──
+                        const pos = this._toCanvasCoords(canvas, e.clientX, e.clientY);
+                        ctx.lineTo(pos.x, pos.y);
+                        ctx.strokeStyle = $('sketch-color').value;
+                        ctx.lineWidth = $('sketch-size').value / this._sketchScale; // compensate so stroke width feels consistent at any zoom
+                        ctx.stroke();
+                    }
+                };
+
+                const endPointer = (e) => {
+                    activePointers.delete(e.pointerId);
+                    this.isDrawing = false;
+                    lastPinchDist = null;
+                    lastPinchMid = null;
+                    // If one finger lifts but another is still down, don't immediately draw
+                    if (activePointers.size === 0) {
+                        ctx.beginPath(); // reset path so next stroke is clean
+                    }
+                };
+
+                canvas.onpointerup = endPointer;
+                canvas.onpointercancel = endPointer;
             }
 
             closeSketch() { $('modal-sketch').classList.add('hidden'); }
+
+            resetSketchZoom() {
+                this._sketchScale = 1;
+                this._sketchPanX = 0;
+                this._sketchPanY = 0;
+                this._applySketchTransform($('sketch-canvas'));
+                showToast('Zoom reset');
+            }
 
             clearSketch() {
                 const c = $('sketch-canvas'), ctx = this.wbCtx;
@@ -1594,10 +1727,10 @@
                     img.onerror = () => { toggleLoader(false); showToast("Error loading image"); };
                     img.src = src;
                     this.isDrawing = false;
-                    canvas.onpointerdown = (e) => { this.undoStack.push(canvas.toDataURL()); if(this.undoStack.length > this.undoLimit) this.undoStack.shift(); this.isDrawing=true; ctx.beginPath(); ctx.moveTo(e.offsetX, e.offsetY); };
-                    canvas.onpointermove = (e) => { if(!this.isDrawing) return; ctx.lineTo(e.offsetX, e.offsetY); ctx.strokeStyle = $('sketch-color').value; ctx.lineWidth = $('sketch-size').value; ctx.stroke(); };
-                    canvas.onpointerup = () => this.isDrawing = false;
-                    canvas.onpointercancel = () => this.isDrawing = false;
+                    // Reset zoom/pan for annotation mode
+                    this._sketchScale = 1; this._sketchPanX = 0; this._sketchPanY = 0;
+                    this._applySketchTransform(canvas);
+                    this._bindSketchPointers(canvas, ctx);
                 };
                 this.closeCaptionModal();
                 $('modal-sketch').classList.remove('hidden');
@@ -1784,15 +1917,118 @@
                 if(!this.map || !this.markers) return;
                 this.markers.clearLayers();
                 const bounds = [];
+
                 state.items.forEach(i => {
-                    if(i.lat && i.lng) {
-                        let color = i.type === 'note' ? '#eab308' : (i.type === 'sketch' ? '#9333ea' : '#2563eb');
-                        const icon = L.divIcon({ className: 'custom-div-icon', html: `<div style="background-color:${color};width:12px;height:12px;border-radius:50%;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3);"></div>`, iconSize: [12,12], iconAnchor: [6,6] });
-                        this.markers.addLayer(L.marker([i.lat, i.lng], { icon }).bindPopup(`<b>${i.title||'Item'}</b><br>${i.dateString}`));
-                        bounds.push([i.lat, i.lng]);
-                    }
+                    if(!i.lat || !i.lng) return;
+
+                    const isNote = i.type === 'note';
+                    const isSketch = i.type === 'sketch';
+                    const color = isNote ? '#eab308' : (isSketch ? '#9333ea' : '#2563eb');
+                    const label = isNote ? '📝' : (isSketch ? '✏️' : `#${i.photoNumber || '?'}`);
+
+                    // Larger tap target on mobile — 28px with number/type label
+                    const icon = L.divIcon({
+                        className: '',
+                        html: `<div style="
+                            background:${color};
+                            color:white;
+                            font-size:9px;
+                            font-weight:700;
+                            font-family:monospace;
+                            width:28px;height:28px;
+                            border-radius:50%;
+                            border:2.5px solid white;
+                            box-shadow:0 2px 6px rgba(0,0,0,0.35);
+                            display:flex;align-items:center;justify-content:center;
+                            cursor:pointer;
+                        ">${label}</div>`,
+                        iconSize: [28, 28],
+                        iconAnchor: [14, 14]
+                    });
+
+                    // Build rich popup HTML
+                    const thumbHtml = (i.type === 'photo' || i.type === 'sketch') && i.url
+                        ? `<img src="${i.url}" style="width:100%;height:100px;object-fit:cover;display:block;border-radius:6px 6px 0 0;"
+                               onerror="this.style.display='none'">`
+                        : `<div style="width:100%;height:60px;background:${color}20;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center;font-size:24px;">${isNote ? '📝' : '✏️'}</div>`;
+
+                    const typeLabel = isNote ? 'Note' : (isSketch ? 'Sketch' : `Photo #${i.photoNumber || '?'}`);
+                    const typeBadgeColor = isNote ? '#eab308' : (isSketch ? '#9333ea' : '#2563eb');
+
+                    const openAction = isNote
+                        ? `window.app.openMapNote('${i.id}')`
+                        : `window.app.openMapPhoto('${i.id}')`;
+
+                    const popupHtml = `
+                        <div style="width:200px;font-family:Inter,sans-serif;margin:-13px -20px -13px;border-radius:8px;overflow:hidden;">
+                            ${thumbHtml}
+                            <div style="padding:10px;">
+                                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                                    <span style="font-size:9px;font-weight:700;color:${typeBadgeColor};text-transform:uppercase;letter-spacing:0.05em;">${typeLabel}</span>
+                                    <span style="font-size:9px;color:#94a3b8;">${i.dateString ? i.dateString.split(' ')[0] : ''}</span>
+                                </div>
+                                <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    ${i.title || 'Untitled'}
+                                </div>
+                                <div style="font-size:11px;color:#64748b;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
+                                    ${i.detailedDesc || i.text || i.caption || ''}
+                                </div>
+                                <button onclick="${openAction}"
+                                    style="width:100%;padding:7px;background:${typeBadgeColor};color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
+                                    ${isNote ? 'View Note' : 'Open Photo'}
+                                </button>
+                            </div>
+                        </div>`;
+
+                    const popup = L.popup({
+                        maxWidth: 220,
+                        className: 'field-cam-popup',
+                        closeButton: true,
+                        autoClose: true
+                    }).setContent(popupHtml);
+
+                    this.markers.addLayer(L.marker([i.lat, i.lng], { icon }).bindPopup(popup));
+                    bounds.push([i.lat, i.lng]);
                 });
-                if(bounds.length) this.map.fitBounds(bounds, { padding: [50,50] });
+
+                if(bounds.length) this.map.fitBounds(bounds, { padding: [50, 50] });
+            }
+
+            // Open photo detail from map marker
+            openMapPhoto(id) {
+                // Close any open popup first
+                this.map.closePopup();
+                // Build detail list from all photo/sketch items with location
+                this._detailList = state.items.filter(i =>
+                    (i.type === 'photo' || i.type === 'sketch') && i.lat && i.lng
+                );
+                this._detailIdx = this._detailList.findIndex(i => i.id === id);
+                if (this._detailIdx === -1) {
+                    // Fallback: item exists but not in location list — show it alone
+                    const item = state.items.find(i => i.id === id);
+                    if (!item) return;
+                    this._detailList = [item];
+                    this._detailIdx = 0;
+                }
+                this._renderDetail();
+                $('detail-modal').classList.remove('hidden');
+                lucide.createIcons();
+                this._initDetailSwipe();
+                this._initDetailKeyboard();
+            }
+
+            // Show note content in a toast-style overlay from map
+            openMapNote(id) {
+                this.map.closePopup();
+                const item = state.items.find(i => i.id === id);
+                if (!item) return;
+                // Populate and open the notes modal in read-only-style view
+                $('note-modal-title').innerText = item.title || 'Note';
+                $('note-title').value = item.title || '';
+                $('note-text').value = item.text || item.detailedDesc || '';
+                $('btn-save-note').innerText = 'Update Note';
+                state.editingNoteId = item.id;
+                $('modal-notes').classList.remove('hidden');
             }
 
             centerMap() {
