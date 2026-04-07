@@ -229,7 +229,7 @@
                             <h2 class="font-bold text-slate-800">Project Log <span id="log-count" class="text-xs font-normal text-slate-400"></span></h2>
                             <button onclick="window.app.toggleSelectAll()" id="select-all-btn" class="text-[10px] font-bold text-slate-400 hover:text-blue-600 bg-slate-100 hover:bg-blue-50 px-2 py-0.5 rounded-full transition">Select All</button>
                         </div>
-                        <button onclick="window.app.genPDF()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 active:scale-95 transition">
+                        <button onclick="window.app.openPDFOptions()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow flex items-center gap-1 active:scale-95 transition">
                             <i data-lucide="file-text" class="w-3 h-3"></i> Generate Report
                         </button>
                     </div>
@@ -609,6 +609,185 @@
         </div>
     </div>
 
+    <!-- MODAL: PDF REPORT OPTIONS -->
+    <div id="modal-pdf-options" class="fixed inset-0 z-50 bg-black/80 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in">
+        <div class="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
+
+            <!-- Header -->
+            <div class="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
+                <div>
+                    <h3 class="font-bold text-slate-800 text-lg">Report Options</h3>
+                    <p class="text-xs text-slate-400 mt-0.5">Settings are saved automatically</p>
+                </div>
+                <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden')" class="p-1.5 rounded-full hover:bg-slate-200 text-slate-500">
+                    <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto">
+
+                <!-- COVER PAGE INFO -->
+                <div class="p-5 border-b border-slate-100">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cover Page</h4>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-opt-cover" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-xs text-slate-500">Include</span>
+                        </label>
+                    </div>
+                    <div id="pdf-cover-fields" class="space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Report Title</label>
+                                <input type="text" id="pdf-title" placeholder="Field Inspection Report" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Report Type</label>
+                                <input type="text" id="pdf-type" placeholder="e.g. Routine Annual Inspection" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Inspector Name</label>
+                                <input type="text" id="pdf-inspector" placeholder="Your name" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Company / Firm</label>
+                                <input type="text" id="pdf-company" placeholder="Organization" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Client / Owner</label>
+                                <input type="text" id="pdf-client" placeholder="Client name" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-bold text-slate-400 uppercase">Job / Contract #</label>
+                                <input type="text" id="pdf-jobnum" placeholder="Job number" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PAGE LAYOUT -->
+                <div class="p-5 border-b border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Page Layout</h4>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Orientation</label>
+                            <div class="flex bg-slate-100 rounded-lg p-0.5">
+                                <button id="pdf-orient-portrait" onclick="window.app.setPDFOption('orientation','portrait')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">Portrait</button>
+                                <button id="pdf-orient-landscape" onclick="window.app.setPDFOption('orientation','landscape')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Landscape</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Photos Per Page</label>
+                            <div class="flex bg-slate-100 rounded-lg p-0.5">
+                                <button id="pdf-ppp-1" onclick="window.app.setPDFOption('photosPerPage',1)" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">1</button>
+                                <button id="pdf-ppp-2" onclick="window.app.setPDFOption('photosPerPage',2)" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">2</button>
+                                <button id="pdf-ppp-4" onclick="window.app.setPDFOption('photosPerPage',4)" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">4</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Sort Order</label>
+                            <div class="flex bg-slate-100 rounded-lg p-0.5">
+                                <button id="pdf-sort-asc" onclick="window.app.setPDFOption('sortOrder','asc')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">Oldest First</button>
+                                <button id="pdf-sort-desc" onclick="window.app.setPDFOption('sortOrder','desc')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Newest First</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Accent Color</label>
+                            <div class="flex gap-2 mt-1">
+                                <button onclick="window.app.setPDFOption('accentColor','#2563eb')" id="pdf-color-blue" class="w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow ring-2 ring-blue-600"></button>
+                                <button onclick="window.app.setPDFOption('accentColor','#dc2626')" id="pdf-color-red" class="w-7 h-7 rounded-full bg-red-600 border-2 border-white shadow"></button>
+                                <button onclick="window.app.setPDFOption('accentColor','#16a34a')" id="pdf-color-green" class="w-7 h-7 rounded-full bg-green-600 border-2 border-white shadow"></button>
+                                <button onclick="window.app.setPDFOption('accentColor','#475569')" id="pdf-color-slate" class="w-7 h-7 rounded-full bg-slate-600 border-2 border-white shadow"></button>
+                                <button onclick="window.app.setPDFOption('accentColor','#000000')" id="pdf-color-black" class="w-7 h-7 rounded-full bg-black border-2 border-white shadow"></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTIONS -->
+                <div class="p-5 border-b border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Sections to Include</h4>
+                    <div class="grid grid-cols-2 gap-y-2 gap-x-4">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-sec-index" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Photo Index Table</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-sec-notes" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Field Notes</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-sec-photos" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Photo Log</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-sec-sketches" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Sketch Log</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- PHOTO OPTIONS -->
+                <div class="p-5 border-b border-slate-100">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Photo Options</h4>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-opt-raw" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <div>
+                                <span class="text-sm text-slate-700">Use raw photos</span>
+                                <p class="text-[10px] text-slate-400">Originals without data overlay burned in</p>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-opt-gps" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Show GPS coordinates per photo</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-opt-weather" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Show weather data per photo</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-opt-heading" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Show compass heading per photo</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- HEADER / FOOTER -->
+                <div class="p-5">
+                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Header &amp; Footer</h4>
+                    <div class="space-y-2">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="pdf-opt-runningheader" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <span class="text-sm text-slate-700">Running header on every page</span>
+                        </label>
+                        <div>
+                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Footer Content</label>
+                            <div class="flex bg-slate-100 rounded-lg p-0.5">
+                                <button id="pdf-footer-pagenum" onclick="window.app.setPDFOption('footer','pagenum')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">Page #</button>
+                                <button id="pdf-footer-pageofpage" onclick="window.app.setPDFOption('footer','pageofpage')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Page X of Y</button>
+                                <button id="pdf-footer-full" onclick="window.app.setPDFOption('footer','full')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Project + Page</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Generate button -->
+            <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
+                <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden')" class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm">Cancel</button>
+                <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden'); window.app.genPDF()" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    Generate PDF
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- MODAL: EXPORT -->
     <div id="export-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4 fade-in">
         <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
@@ -617,9 +796,9 @@
                 <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-5 space-y-3">
-                <button onclick="window.app.genPDF()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 transition group">
+                <button onclick="document.getElementById('export-modal').classList.add('hidden'); window.app.openPDFOptions()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 transition group">
                     <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mr-3"><i data-lucide="file-text" class="w-5 h-5"></i></div>
-                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">PDF Report</div><div class="text-[10px] text-slate-500">Compiles photos & notes</div></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">PDF Report</div><div class="text-[10px] text-slate-500">Configure & generate</div></div>
                 </button>
                 <button onclick="window.app.genCSV()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-green-50 hover:border-green-200 transition group">
                     <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3"><i data-lucide="table" class="w-5 h-5"></i></div>
@@ -802,6 +981,25 @@
         const DEFAULT_TIMEOUT_MS = 8000;
 
         const getTimeoutMs = () => parseInt(localStorage.getItem(TIMEOUT_KEY) || DEFAULT_TIMEOUT_MS);
+
+        // ── PDF REPORT OPTIONS ───────────────────────────────────────────────
+        const PDF_OPTIONS_KEY = 'fp_pdf_options';
+        const PDF_DEFAULTS = {
+            // Cover
+            cover: true, title: '', type: '', inspector: '', company: '', client: '', jobnum: '',
+            // Layout
+            orientation: 'portrait', photosPerPage: 2, sortOrder: 'asc', accentColor: '#2563eb',
+            // Sections
+            secIndex: true, secNotes: true, secPhotos: true, secSketches: true,
+            // Photo options
+            rawPhotos: false, showGPS: true, showWeather: true, showHeading: true,
+            // Header/footer
+            runningHeader: true, footer: 'pageofpage'
+        };
+        const getPDFOptions = () => {
+            try { return { ...PDF_DEFAULTS, ...JSON.parse(localStorage.getItem(PDF_OPTIONS_KEY) || '{}') }; }
+            catch(e) { return { ...PDF_DEFAULTS }; }
+        };
 
         // APP STATE
         const state = {
@@ -3429,62 +3627,302 @@
                 if(parts.length > 1) { parts.pop(); this.loadFiles(parts.join('/')); }
             }
 
+            // ── PDF OPTIONS MODAL ────────────────────────────────────────────
+            openPDFOptions() {
+                const o = getPDFOptions();
+                const fields = ['title','type','inspector','company','client','jobnum'];
+                fields.forEach(f => { const el = document.getElementById('pdf-' + f); if(el) el.value = o[f] || ''; });
+                const checks = {
+                    'pdf-opt-cover': 'cover', 'pdf-opt-raw': 'rawPhotos', 'pdf-opt-gps': 'showGPS',
+                    'pdf-opt-weather': 'showWeather', 'pdf-opt-heading': 'showHeading',
+                    'pdf-opt-runningheader': 'runningHeader',
+                    'pdf-sec-index': 'secIndex', 'pdf-sec-notes': 'secNotes',
+                    'pdf-sec-photos': 'secPhotos', 'pdf-sec-sketches': 'secSketches'
+                };
+                Object.entries(checks).forEach(([id, key]) => {
+                    const el = document.getElementById(id); if(el) el.checked = !!o[key];
+                });
+                this._updatePDFOptionButtons(o);
+                document.getElementById('modal-pdf-options').classList.remove('hidden');
+            }
+
+            savePDFOptions() {
+                const o = getPDFOptions();
+                const fields = ['title','type','inspector','company','client','jobnum'];
+                fields.forEach(f => { const el = document.getElementById('pdf-' + f); if(el) o[f] = el.value.trim(); });
+                const checks = {
+                    'pdf-opt-cover': 'cover', 'pdf-opt-raw': 'rawPhotos', 'pdf-opt-gps': 'showGPS',
+                    'pdf-opt-weather': 'showWeather', 'pdf-opt-heading': 'showHeading',
+                    'pdf-opt-runningheader': 'runningHeader',
+                    'pdf-sec-index': 'secIndex', 'pdf-sec-notes': 'secNotes',
+                    'pdf-sec-photos': 'secPhotos', 'pdf-sec-sketches': 'secSketches'
+                };
+                Object.entries(checks).forEach(([id, key]) => {
+                    const el = document.getElementById(id); if(el) o[key] = el.checked;
+                });
+                localStorage.setItem(PDF_OPTIONS_KEY, JSON.stringify(o));
+            }
+
+            setPDFOption(key, value) {
+                const o = getPDFOptions();
+                o[key] = value;
+                localStorage.setItem(PDF_OPTIONS_KEY, JSON.stringify(o));
+                this._updatePDFOptionButtons(o);
+            }
+
+            _updatePDFOptionButtons(o) {
+                const toggleBtn = (id, active) => {
+                    const btn = document.getElementById(id); if(!btn) return;
+                    btn.classList.toggle('bg-white', active); btn.classList.toggle('shadow', active);
+                    btn.classList.toggle('text-slate-800', active); btn.classList.toggle('text-slate-500', !active);
+                };
+                ['portrait','landscape'].forEach(v => toggleBtn('pdf-orient-' + v, o.orientation === v));
+                [1,2,4].forEach(v => toggleBtn('pdf-ppp-' + v, o.photosPerPage === v));
+                ['asc','desc'].forEach(v => toggleBtn('pdf-sort-' + v, o.sortOrder === v));
+                ['pagenum','pageofpage','full'].forEach(v => toggleBtn('pdf-footer-' + v, o.footer === v));
+                const colors = { blue:'#2563eb', red:'#dc2626', green:'#16a34a', slate:'#475569', black:'#000000' };
+                Object.entries(colors).forEach(([name, hex]) => {
+                    const btn = document.getElementById('pdf-color-' + name); if(!btn) return;
+                    btn.style.boxShadow = o.accentColor === hex ? '0 0 0 3px white, 0 0 0 5px ' + hex : '';
+                });
+            }
+
+            // ── PDF GENERATION ───────────────────────────────────────────────
             async genPDF() {
-                const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id)).sort((a,b) => a.timestamp - b.timestamp);
-                if(exportItems.length === 0) return showToast("No items selected for report");
+                const o = getPDFOptions();
+                const sortedItems = state.items
+                    .filter(i => !state.excludedReportItems.has(i.id))
+                    .sort((a,b) => o.sortOrder === 'desc' ? b.timestamp - a.timestamp : a.timestamp - b.timestamp);
+                if(sortedItems.length === 0) return showToast("No items selected for report");
+
                 toggleLoader(true, "Generating PDF...");
                 try {
-                const { jsPDF } = window.jspdf;
-                const doc = new jsPDF();
-                const pageWidth = doc.internal.pageSize.getWidth(), pageHeight = doc.internal.pageSize.getHeight();
-                doc.setFontSize(22); doc.text("Field Inspection Report", pageWidth/2, 40, {align:'center'});
-                doc.setFontSize(14); doc.text(`Project: ${state.project}`, pageWidth/2, 55, {align:'center'});
-                doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth/2, 65, {align:'center'});
-                let pageNum = 1, y = 20;
-                const addFooter = (n) => { doc.setFontSize(8); doc.text(`Page ${n}`, pageWidth - 20, pageHeight - 10); };
-                addFooter(pageNum);
-                const addImagesToPDF = async (sectionTitle, items) => {
-                    if(items.length === 0) return;
-                    doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
-                    doc.setFontSize(16); doc.text(sectionTitle, 15, y); y += 15;
-                    for(let i=0; i<items.length; i++) {
-                        const p = items[i];
-                        try {
-                            const imgData = await this.urlToBase64(p.url);
-                            const imgProps = doc.getImageProperties(imgData);
-                            const ratio = imgProps.height / imgProps.width;
-                            let displayW = 170, displayH = displayW * ratio;
-                            if (displayH > 100) { displayH = 100; displayW = displayH / ratio; }
-                            const splitText = doc.splitTextToSize(p.caption || p.detailedDesc || "No caption", 170);
-                            const totalBlockH = displayH + 15 + (splitText.length * 5) + 10;
-                            if (y + totalBlockH > pageHeight - 20) { doc.addPage(); pageNum++; addFooter(pageNum); y = 20; }
-                            doc.addImage(imgData, 'JPEG', 20 + (170-displayW)/2, y, displayW, displayH);
-                            doc.setDrawColor(200); doc.rect(20+(170-displayW)/2, y, displayW, displayH);
-                            y += displayH + 5;
-                            doc.setFontSize(10); doc.setFont("helvetica", "bold");
-                            doc.text(p.type === 'sketch' ? `Sketch ${i+1}` : `Photo #${p.photoNumber||(i+1)}`, 20, y);
-                            doc.setFont("helvetica", "normal"); doc.text(p.dateString||'', 190, y, {align:'right'}); y += 5;
-                            doc.setFontSize(9); doc.text(splitText, 20, y); y += (splitText.length * 5) + 10;
-                        } catch(e) {}
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF({ orientation: o.orientation });
+                    const pageWidth  = doc.internal.pageSize.getWidth();
+                    const pageHeight = doc.internal.pageSize.getHeight();
+                    const margin = 15;
+                    const contentW = pageWidth - margin * 2;
+                    const isLandscape = o.orientation === 'landscape';
+                    let pageNum = 1;
+                    const accent = o.accentColor || '#2563eb';
+                    const hexRGB = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+                    const [ar,ag,ab] = hexRGB(accent);
+
+                    const addRunningHeader = () => {
+                        if (!o.runningHeader || pageNum === 1) return;
+                        doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(150,150,150);
+                        const left = [state.project, o.inspector, o.company].filter(Boolean).join('  |  ');
+                        doc.text(left, margin, 8);
+                        doc.text(new Date().toLocaleDateString(), pageWidth - margin, 8, {align:'right'});
+                        doc.setDrawColor(220,220,220); doc.line(margin, 10, pageWidth - margin, 10);
+                        doc.setTextColor(0,0,0);
+                    };
+
+                    const addFooterText = (current, total) => {
+                        doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(150,150,150);
+                        let txt = o.footer === 'pagenum' ? String(current)
+                            : o.footer === 'full' ? state.project + '  \u2022  Page ' + current + ' of ' + total
+                            : 'Page ' + current + ' of ' + total;
+                        doc.text(txt, pageWidth/2, pageHeight - 6, {align:'center'});
+                        doc.setTextColor(0,0,0);
+                    };
+
+                    const newPage = (totalPages) => {
+                        addFooterText(pageNum, totalPages || '?');
+                        doc.addPage(); pageNum++;
+                        addRunningHeader();
+                    };
+
+                    const sectionHeader = (title) => {
+                        doc.setFillColor(ar,ag,ab);
+                        doc.rect(margin, 18, contentW, 9, 'F');
+                        doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(255,255,255);
+                        doc.text(title.toUpperCase(), margin + 3, 24.5);
+                        doc.setTextColor(0,0,0);
+                        return 33;
+                    };
+
+                    // ── COVER PAGE ──────────────────────────────────────────
+                    if (o.cover) {
+                        doc.setFillColor(ar,ag,ab);
+                        doc.rect(0, 0, pageWidth, 20, 'F');
+                        doc.setFontSize(24); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
+                        doc.text(o.title || 'Field Inspection Report', pageWidth/2, 50, {align:'center'});
+                        if (o.type) {
+                            doc.setFontSize(12); doc.setFont("helvetica","normal"); doc.setTextColor(100,100,100);
+                            doc.text(o.type, pageWidth/2, 60, {align:'center'});
+                        }
+                        doc.setDrawColor(ar,ag,ab); doc.setLineWidth(0.5);
+                        doc.line(margin+20, 67, pageWidth-margin-20, 67);
+                        doc.setLineWidth(0.2);
+                        let cy = 80;
+                        const rows = [
+                            ['Project', state.project],
+                            ['Inspector', o.inspector],
+                            ['Company / Firm', o.company],
+                            ['Client / Owner', o.client],
+                            ['Job / Contract #', o.jobnum],
+                            ['Date', new Date().toLocaleDateString()],
+                            ['Entries', sortedItems.length + ' total (' +
+                                sortedItems.filter(i=>i.type==='photo').length + ' photos, ' +
+                                sortedItems.filter(i=>i.type==='note').length + ' notes, ' +
+                                sortedItems.filter(i=>i.type==='sketch').length + ' sketches)'],
+                        ].filter(([,v]) => v);
+                        rows.forEach(([label, value], idx) => {
+                            if (idx % 2 === 0) { doc.setFillColor(248,250,252); doc.rect(margin, cy-4, contentW, 9, 'F'); }
+                            doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
+                            doc.text(label.toUpperCase(), margin+3, cy+1.5);
+                            doc.setFont("helvetica","normal"); doc.setTextColor(50,50,50);
+                            doc.text(String(value), margin+60, cy+1.5);
+                            cy += 10;
+                        });
+                        doc.setFillColor(ar,ag,ab);
+                        doc.rect(0, pageHeight-12, pageWidth, 12, 'F');
+                        doc.setFontSize(7); doc.setTextColor(255,255,255);
+                        doc.text('Generated by Field Cam', pageWidth/2, pageHeight-5, {align:'center'});
+                        doc.setTextColor(0,0,0);
                     }
-                };
-                const notes = exportItems.filter(i => i.type === 'note');
-                if(notes.length > 0) {
-                    doc.addPage(); pageNum++; addFooter(pageNum); y = 20;
-                    doc.setFontSize(16); doc.text("Field Notes", 15, y); y += 15;
-                    notes.forEach(n => {
-                        if(y + 40 > pageHeight) { doc.addPage(); pageNum++; addFooter(pageNum); y = 20; }
-                        const startY = y; y += 5;
-                        doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.text(n.title || "Note", 20, y);
-                        doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text(n.dateString, 185, y, {align:'right'}); y += 7;
-                        const splitDesc = doc.splitTextToSize(n.text || n.detailedDesc || "", 170);
-                        doc.text(splitDesc, 20, y); y += (splitDesc.length * 5) + 10;
-                        doc.rect(15, startY, 180, y - startY - 5); y += 5;
-                    });
-                }
-                await addImagesToPDF("Photo Log", exportItems.filter(i => i.type === 'photo'));
-                await addImagesToPDF("Sketch Log", exportItems.filter(i => i.type === 'sketch'));
-                doc.save(`${state.project}_Report.pdf`);
+
+                    // ── PHOTO INDEX TABLE ───────────────────────────────────
+                    if (o.secIndex) {
+                        const imgItems = sortedItems.filter(i => i.type==='photo' || i.type==='sketch');
+                        if (imgItems.length > 0) {
+                            doc.addPage(); pageNum++;
+                            addRunningHeader();
+                            let y = sectionHeader('Photo Index');
+                            doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(80,80,80);
+                            doc.text('#', margin, y); doc.text('Title / Location', margin+15, y);
+                            doc.text('Date', margin+110, y); doc.text('GPS', margin+143, y);
+                            y += 3; doc.setDrawColor(200,200,200); doc.line(margin, y, pageWidth-margin, y); y += 5;
+                            imgItems.forEach((p, idx) => {
+                                if (y > pageHeight-18) { newPage('?'); y = 22; }
+                                if (idx%2===0) { doc.setFillColor(248,250,252); doc.rect(margin, y-3, contentW, 7, 'F'); }
+                                doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
+                                doc.text(p.type==='sketch' ? 'S' : String(p.photoNumber||idx+1), margin+2, y+1);
+                                doc.setFont("helvetica","normal"); doc.setTextColor(50,50,50);
+                                doc.text(doc.splitTextToSize(p.title||'Untitled', 88)[0], margin+15, y+1);
+                                doc.text(p.dateString ? p.dateString.split(' ')[0] : '', margin+110, y+1);
+                                if(p.lat) doc.text(p.lat.toFixed(4)+', '+p.lng.toFixed(4), margin+143, y+1);
+                                y += 7;
+                            });
+                        }
+                    }
+
+                    // ── FIELD NOTES ─────────────────────────────────────────
+                    if (o.secNotes) {
+                        const notes = sortedItems.filter(i => i.type==='note');
+                        if (notes.length > 0) {
+                            doc.addPage(); pageNum++;
+                            addRunningHeader();
+                            let y = sectionHeader('Field Notes');
+                            notes.forEach(n => {
+                                const lines = doc.splitTextToSize(n.text || n.detailedDesc || '', contentW-8);
+                                const bh = 14 + lines.length * 4.5 + 6;
+                                if (y + bh > pageHeight-15) { newPage('?'); y = 22; }
+                                const sy = y;
+                                doc.setFillColor(255,252,235); doc.setDrawColor(ar,ag,ab);
+                                doc.roundedRect(margin, y, contentW, bh, 2, 2, 'FD');
+                                y += 6;
+                                doc.setFontSize(10); doc.setFont("helvetica","bold"); doc.setTextColor(50,50,50);
+                                doc.text(n.title||'Note', margin+4, y);
+                                doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(120,120,120);
+                                doc.text(n.dateString||'', pageWidth-margin-4, y, {align:'right'});
+                                y += 6; doc.setFontSize(8.5); doc.setTextColor(60,60,60);
+                                doc.text(lines, margin+4, y);
+                                y = sy + bh + 5; doc.setTextColor(0,0,0);
+                            });
+                        }
+                    }
+
+                    // ── PHOTO / SKETCH LOG ──────────────────────────────────
+                    const ppp = o.photosPerPage || 2;
+                    const addImagesSection = async (secTitle, items) => {
+                        if (items.length === 0) return;
+                        doc.addPage(); pageNum++;
+                        addRunningHeader();
+                        let y = sectionHeader(secTitle);
+                        const cols = ppp === 4 ? 2 : 1;
+                        const imgMaxH = ppp === 1 ? (isLandscape ? 140 : 115) : ppp === 2 ? 90 : 65;
+                        const capH = ppp === 4 ? 20 : 28;
+                        const cellW = cols === 2 ? (contentW - 5) / 2 : contentW;
+                        const cellH = imgMaxH + capH;
+                        let col = 0;
+
+                        for (let i = 0; i < items.length; i++) {
+                            const p = items[i];
+                            const posX = margin + col * (cellW + 5);
+                            const posY = y;
+
+                            // New page when needed
+                            if (posY + cellH > pageHeight - 15 && !(i === 0)) {
+                                newPage('?');
+                                y = sectionHeader(secTitle);
+                                col = 0;
+                            }
+                            const drawY = y;
+
+                            try {
+                                let imgUrl = p.url;
+                                if (o.rawPhotos && p.rawStoragePath) {
+                                    try { imgUrl = await getDownloadURL(ref(state.storage, p.rawStoragePath)); } catch(e) {}
+                                }
+                                const imgData = await this.urlToBase64(imgUrl);
+                                const imgProps = doc.getImageProperties(imgData);
+                                const ratio = imgProps.height / imgProps.width;
+                                let dW = cellW, dH = dW * ratio;
+                                if (dH > imgMaxH) { dH = imgMaxH; dW = dH / ratio; }
+                                const ix = margin + col * (cellW + 5) + (cellW - dW) / 2;
+
+                                doc.setFillColor(240,240,240); doc.setDrawColor(200,200,200);
+                                doc.rect(margin + col*(cellW+5), drawY, cellW, imgMaxH, 'FD');
+                                doc.addImage(imgData, 'JPEG', ix, drawY + (imgMaxH - dH)/2, dW, dH);
+
+                                const cy = drawY + imgMaxH + 2;
+                                const fs = ppp === 4 ? 7 : 8.5;
+                                doc.setFontSize(fs); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
+                                const lbl = p.type==='sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber||i+1);
+                                doc.text(lbl, margin + col*(cellW+5), cy+4);
+                                doc.setFont("helvetica","normal"); doc.setTextColor(100,100,100);
+                                doc.text(p.dateString ? p.dateString.split(' ')[0] : '', margin + col*(cellW+5) + cellW, cy+4, {align:'right'});
+                                doc.setFontSize(fs); doc.setTextColor(50,50,50);
+                                doc.text(doc.splitTextToSize(p.title||p.caption||'', cellW)[0], margin+col*(cellW+5), cy+9);
+
+                                let ey = cy + 14;
+                                doc.setFontSize(6.5); doc.setTextColor(120,120,120);
+                                if (o.showGPS && p.lat) { doc.text('GPS: ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5), margin+col*(cellW+5), ey); ey+=4; }
+                                if (o.showWeather && p.weather && p.weather.temp) { doc.text('Wx: ' + (p.weather.desc||'') + ' ' + p.weather.temp, margin+col*(cellW+5), ey); ey+=4; }
+                                if (o.showHeading && p.heading) { doc.text('Heading: ' + Math.round(p.heading) + '\u00b0', margin+col*(cellW+5), ey); }
+                                doc.setTextColor(0,0,0);
+                            } catch(e) { /* skip */ }
+
+                            col++;
+                            if (col >= cols) {
+                                col = 0;
+                                y += cellH + 8;
+                                if (y > pageHeight - 15 && i < items.length - 1) {
+                                    newPage('?'); y = sectionHeader(secTitle);
+                                }
+                            }
+                        }
+                    };
+
+                    if (o.secPhotos)   await addImagesSection('Photo Log', sortedItems.filter(i => i.type==='photo'));
+                    if (o.secSketches) await addImagesSection('Sketch Log', sortedItems.filter(i => i.type==='sketch'));
+
+                    // Stamp correct footers now that we know total pages
+                    const totalPgs = doc.getNumberOfPages();
+                    const coverOffset = o.cover ? 1 : 0;
+                    for (let n = 1; n <= totalPgs; n++) {
+                        doc.setPage(n);
+                        if (n === 1 && o.cover) continue; // cover has its own footer
+                        addFooterText(n - coverOffset, totalPgs - coverOffset);
+                    }
+
+                    const filename = state.project + '_Report_' + new Date().toISOString().slice(0,10) + '.pdf';
+                    doc.save(filename);
+                    showToast('Report saved: ' + filename);
+
                 } catch(e) {
                     console.error("PDF generation error", e);
                     alert("PDF generation failed: " + e.message);
@@ -3492,6 +3930,8 @@
                     toggleLoader(false);
                 }
             }
+
+
 
             async genCSV() {
                 const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id));
