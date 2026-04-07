@@ -3796,15 +3796,38 @@
                             doc.text('Date', margin+110, y); doc.text('GPS', margin+143, y);
                             y += 3; doc.setDrawColor(200,200,200); doc.line(margin, y, pageWidth-margin, y); y += 5;
                             imgItems.forEach((p, idx) => {
-                                if (y > pageHeight-18) { newPage('?'); y = 22; }
-                                if (idx%2===0) { doc.setFillColor(248,250,252); doc.rect(margin, y-3, contentW, 7, 'F'); }
+                                // Calculate row height based on description length (max 2 lines)
+                                const titleColW = 88;
+                                const descText = p.detailedDesc || p.caption || '';
+                                const descLines = descText
+                                    ? doc.splitTextToSize(descText, titleColW).slice(0, 2)
+                                    : [];
+                                const rowH = 8 + (descLines.length * 4); // 8 for title line, 4 per desc line
+
+                                if (y + rowH > pageHeight-18) { newPage('?'); y = 22; }
+                                if (idx%2===0) { doc.setFillColor(248,250,252); doc.rect(margin, y-3, contentW, rowH + 2, 'F'); }
+
+                                // Photo number
                                 doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
                                 doc.text(p.type==='sketch' ? 'S' : String(p.photoNumber||idx+1), margin+2, y+1);
-                                doc.setFont("helvetica","normal"); doc.setTextColor(50,50,50);
-                                doc.text(doc.splitTextToSize(p.title||'Untitled', 88)[0], margin+15, y+1);
+
+                                // Title — bold, dark
+                                doc.setFont("helvetica","bold"); doc.setTextColor(50,50,50);
+                                doc.text(doc.splitTextToSize(p.title||'Untitled', titleColW)[0], margin+15, y+1);
+
+                                // Description — smaller, grey, under the title
+                                if (descLines.length > 0) {
+                                    doc.setFontSize(6.5); doc.setFont("helvetica","normal"); doc.setTextColor(120,120,120);
+                                    doc.text(descLines, margin+15, y+5.5);
+                                }
+
+                                // Date and GPS aligned to title baseline
+                                doc.setFontSize(7.5); doc.setFont("helvetica","normal"); doc.setTextColor(80,80,80);
                                 doc.text(p.dateString ? p.dateString.split(' ')[0] : '', margin+110, y+1);
                                 if(p.lat) doc.text(p.lat.toFixed(4)+', '+p.lng.toFixed(4), margin+143, y+1);
-                                y += 7;
+
+                                doc.setTextColor(0,0,0);
+                                y += rowH + 2;
                             });
                         }
                     }
