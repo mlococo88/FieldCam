@@ -1794,12 +1794,11 @@
                 const viewfinder = $('camera-viewfinder');
                 if (!viewfinder) return;
 
-                // Remove old listeners by cloning
-                const fresh = viewfinder.cloneNode(true);
-                // Re-attach button listeners lost by cloneNode
-                fresh.querySelector('button:first-of-type').onclick = () => this.closeCamera();
-                fresh.querySelector('#camera-switch-btn') && (fresh.querySelector('#camera-switch-btn').onclick = () => this.switchCamera());
-                viewfinder.parentNode.replaceChild(fresh, viewfinder);
+                // Use AbortController so we can cleanly remove listeners on switchCamera
+                // WITHOUT cloneNode — cloneNode destroys the video srcObject and kills the stream
+                if (this._zoomAbort) this._zoomAbort.abort();
+                this._zoomAbort = new AbortController();
+                const sig = { signal: this._zoomAbort.signal };
 
                 let startDist = null;
                 let startZoom = this._cameraZoom || 1;
@@ -1809,30 +1808,27 @@
                     Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
 
                 const applyZoom = (zoom) => {
-                    // Clamp: 1× to 5×
                     this._cameraZoom = Math.min(5, Math.max(1, zoom));
                     const video = $('camera-video');
                     if (video) video.style.transform = `scale(${this._cameraZoom})`;
 
-                    // Update zoom label
                     const label = $('camera-zoom-label');
                     if (label) {
                         label.innerText = `${this._cameraZoom.toFixed(1)}×`;
                         label.classList.toggle('hidden', this._cameraZoom <= 1.05);
                     }
 
-                    // Try native camera zoom on Android (better quality than CSS scale)
+                    // Try native camera zoom on Android for better quality
                     if (this._nativeZoomSupported && this._cameraStream) {
                         const track = this._cameraStream.getVideoTracks()[0];
                         const range = this._nativeZoomRange;
                         if (track && range) {
                             const nativeZoom = range.min + (this._cameraZoom - 1) / 4 * (range.max - range.min);
                             track.applyConstraints({ advanced: [{ zoom: Math.min(range.max, Math.max(range.min, nativeZoom)) }] })
-                                .catch(() => {}); // ignore — fall back to CSS only
+                                .catch(() => {});
                         }
                     }
 
-                    // Hide label after 2s of no zooming
                     clearTimeout(zoomHideTimer);
                     if (this._cameraZoom > 1.05) {
                         zoomHideTimer = setTimeout(() => {
@@ -1842,41 +1838,33 @@
                     }
                 };
 
-                fresh.addEventListener('touchstart', (e) => {
+                viewfinder.addEventListener('touchstart', (e) => {
                     if (e.touches.length === 2) {
-                        e.preventDefault(); // CRITICAL: stops iOS from zooming the page
+                        e.preventDefault(); // stops iOS from zooming the page
                         startDist = getDistance(e.touches);
                         startZoom = this._cameraZoom || 1;
                     }
-                }, { passive: false }); // passive:false required for preventDefault to work
+                }, { passive: false, ...sig });
 
-                fresh.addEventListener('touchmove', (e) => {
+                viewfinder.addEventListener('touchmove', (e) => {
                     if (e.touches.length === 2) {
                         e.preventDefault();
-                        const dist = getDistance(e.touches);
-                        if (startDist) {
-                            applyZoom(startZoom * (dist / startDist));
-                        }
+                        if (startDist) applyZoom(startZoom * (getDistance(e.touches) / startDist));
                     }
-                }, { passive: false });
+                }, { passive: false, ...sig });
 
-                fresh.addEventListener('touchend', (e) => {
-                    if (e.touches.length < 2) {
-                        startDist = null;
-                    }
-                }, { passive: true });
+                viewfinder.addEventListener('touchend', (e) => {
+                    if (e.touches.length < 2) startDist = null;
+                }, { passive: true, ...sig });
 
                 // Double-tap to reset zoom
                 let lastTap = 0;
-                fresh.addEventListener('touchend', (e) => {
+                viewfinder.addEventListener('touchend', (e) => {
                     if (e.touches.length > 0) return;
                     const now = Date.now();
-                    if (now - lastTap < 300) {
-                        applyZoom(1);
-                        showToast('Zoom reset', 1000);
-                    }
+                    if (now - lastTap < 300) { applyZoom(1); showToast('Zoom reset', 1000); }
                     lastTap = now;
-                }, { passive: true });
+                }, { passive: true, ...sig });
             }
 
             capturePhoto() {
@@ -1930,9 +1918,11 @@
                 const cam = $('modal-camera');
                 cam.style.display = 'none';
                 cam.classList.add('hidden');
-                // Reset zoom
+                // Reset zoom and abort zoom listeners
+                if (this._zoomAbort) { this._zoomAbort.abort(); this._zoomAbort = null; }
                 this._cameraZoom = 1;
-                $('camera-video').style.transform = 'scale(1)';
+                const vid = $('camera-video');
+                if (vid) vid.style.transform = 'scale(1)';
                 this._cameraCaptured = [];
             }
 
