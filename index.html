@@ -2620,11 +2620,13 @@
                 }
             }
 
-            closeNotes() {
-                // #3 warn if there's unsaved content
-                const title = $('note-title').value.trim();
-                const text = $('note-text').value.trim();
-                if ((title || text) && !confirm("Discard unsaved note?")) return;
+            closeNotes(saved = false) {
+                // Only warn about unsaved content when the user explicitly cancels (not after a successful save)
+                if (!saved) {
+                    const title = $('note-title').value.trim();
+                    const text = $('note-text').value.trim();
+                    if ((title || text) && !confirm("Discard unsaved note?")) return;
+                }
                 $('modal-notes').classList.add('hidden');
                 $('note-title').value = ''; $('note-text').value = '';
             }
@@ -2642,13 +2644,13 @@
                 }
                 if(!state.online) {
                     await this.offlineMgr.addToOutbox({ id, meta, type:'note' });
-                    this.closeNotes();
+                    this.closeNotes(true); // true = saved, skip discard warning
                     showToast(isNew ? "Note Saved (Offline)" : "Note Updated (Offline)");
                     this.switchTab('report'); // consistent with online flow
                     return;
                 }
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta);
-                this.closeNotes();
+                this.closeNotes(true); // true = saved, skip discard warning
                 showToast(isNew ? "Note Saved" : "Note Updated");
                 this.switchTab('report');
             }
