@@ -178,15 +178,12 @@
                             <button onclick="window.app.openCamera()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 rounded-xl p-4 border-2 border-dashed border-blue-200 transition active:scale-95 h-28 w-full">
                                 <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform relative">
                                     <i data-lucide="camera" class="w-5 h-5"></i>
-                                    <span id="series-cam-badge" class="hidden absolute -top-1.5 -right-1.5 bg-orange-500 text-white text-[9px] font-bold rounded-full w-5 h-5 flex items-center justify-center leading-none shadow"></span>
                                 </div>
                                 <span class="text-xs font-bold text-blue-900">Live Photo</span>
                             </button>
                             <!-- Hidden fallback input for browsers without getUserMedia -->
                             <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-                            <button id="series-btn" onclick="window.app.toggleSeriesMode()" class="w-full py-1.5 rounded-lg text-[10px] font-bold border flex items-center justify-center gap-1 transition bg-white text-slate-500 border-slate-200 hover:bg-slate-50">
-                                <i data-lucide="layers" class="w-3 h-3"></i> <span id="series-text">Series Mode</span>
-                            </button>
+
                         </div>
                         <label class="cursor-pointer group relative flex flex-col items-center justify-center bg-indigo-50 hover:bg-indigo-100 rounded-xl p-4 border-2 border-dashed border-indigo-200 transition active:scale-95 h-28">
                             <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
@@ -399,11 +396,11 @@
                     <div>
                         <div class="flex justify-between items-center mb-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
-                            <div class="flex items-center gap-2">
-                                <button type="button" id="use-last-btn" onclick="window.app.useLastCaption()" class="hidden text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full transition flex items-center gap-1">
-                                    <i data-lucide="copy" class="w-3 h-3"></i> Use Last
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" id="use-last-title-btn" onclick="window.app.useLastTitle()" class="hidden text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full transition">
+                                    Use Last
                                 </button>
-                                <button type="button" onclick="$('cap-title').value=''; $('cap-title').focus()" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 px-2 py-0.5 rounded-full transition">
+                                <button type="button" onclick="window.app.clearField('cap-title')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 px-2 py-0.5 rounded-full transition">
                                     Clear
                                 </button>
                             </div>
@@ -413,9 +410,14 @@
                     <div>
                         <div class="flex justify-between items-center mb-1">
                             <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
-                            <button type="button" onclick="$('cap-desc').value=''; $('cap-desc').focus()" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 px-2 py-0.5 rounded-full transition">
-                                Clear
-                            </button>
+                            <div class="flex items-center gap-1.5">
+                                <button type="button" id="use-last-desc-btn" onclick="window.app.useLastDesc()" class="hidden text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full transition">
+                                    Use Last
+                                </button>
+                                <button type="button" onclick="window.app.clearField('cap-desc')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 hover:bg-red-50 px-2 py-0.5 rounded-full transition">
+                                    Clear
+                                </button>
+                            </div>
                         </div>
                         <textarea id="cap-desc" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm h-24 resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
                     </div>
@@ -486,13 +488,13 @@
                     <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
                     <div class="flex gap-2">
                         <button id="queue-use-last-btn" onclick="window.app.useLastCaptionQueue()" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Use Last</button>
-                        <button onclick="$('queue-title').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                        <button onclick="window.app.clearField('queue-title')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
                     </div>
                 </div>
                 <input type="text" id="queue-title" placeholder="e.g. South Abutment" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)">
                 <div class="flex justify-between items-center">
                     <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
-                    <button onclick="$('queue-desc').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                    <button onclick="window.app.clearField('queue-desc')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
                 </div>
                 <textarea id="queue-desc" rows="2" placeholder="Optional details..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
             </div>
@@ -540,13 +542,13 @@
                     <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
                     <div class="flex gap-2">
                         <button onclick="window.app.useLastCaptionPerPhoto()" id="per-photo-use-last" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Use Last</button>
-                        <button onclick="$('per-photo-title').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                        <button onclick="window.app.clearField('per-photo-title')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
                     </div>
                 </div>
                 <input type="text" id="per-photo-title" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)">
                 <div class="flex justify-between items-center">
                     <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
-                    <button onclick="$('per-photo-desc').value=''" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
+                    <button onclick="window.app.clearField('per-photo-desc')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
                 </div>
                 <textarea id="per-photo-desc" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
             </div>
@@ -808,7 +810,7 @@
             projects: new Set(JSON.parse(localStorage.getItem('fp_projects') || '["Project-Alpha"]')),
             location: null, weather: { temp: '', desc: '' }, heading: null,
             filter: 'all', path: `artifacts/${appId}/public/data/files`,
-            items: [], seriesMode: false, queue: [],
+            items: [], queue: [],
             pendingBlob: null, pendingId: null, editMode: false, pendingType: 'photo',
             tempMeta: null,
             lastCaption: { title: '', desc: '' }, // persists last-used title/desc for quick re-use
@@ -1558,10 +1560,7 @@
             }
 
             switchTab(id) {
-                // #12 warn before leaving if series mode is active with queued photos
-                if (state.seriesMode && state.queue.length > 0 && id !== 'inspect') {
-                    if (!confirm(`You have ${state.queue.length} photo${state.queue.length > 1 ? 's' : ''} queued in Series Mode.\n\nSwitch tabs anyway? (Series mode will stay active)`)) return;
-                }
+
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 $(`tab-${id}`).classList.add('active');
                 document.querySelectorAll('.nav-item').forEach(el => {
@@ -1902,11 +1901,9 @@
                     $('camera-done-btn').classList.remove('hidden');
                     $('camera-done-placeholder').classList.add('hidden');
 
-                    // If series mode — queue automatically, keep camera open
-                    if (state.seriesMode) {
-                        this.addToQueue(blob, id);
-                        showToast(`Photo ${state.queue.length} queued`);
-                    }
+                    // Always queue — closeCameraAndReview decides single vs batch
+                    this.addToQueue(blob, id);
+                    showToast(`Photo ${state.queue.length} queued`);
                 }, 'image/jpeg', 0.92);
             }
 
@@ -2025,8 +2022,7 @@
                     });
                 } else {
                     state.tempMeta = null;
-                    if(state.seriesMode) this.addToQueue(state.pendingBlob, state.pendingId);
-                    else this.openCaptionModal(file);
+                    this.openCaptionModal(file);
                 }
             }
 
@@ -2062,50 +2058,18 @@
                 });
             }
 
-            toggleSeriesMode() {
-                state.seriesMode = !state.seriesMode;
-                const btn = $('series-btn'); const txt = $('series-text');
-                if(state.seriesMode) {
-                    state.queue = [];
-                    btn.classList.remove('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
-                    btn.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
-                    txt.innerText = "Active (0)";
-                } else {
-                    btn.classList.add('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
-                    btn.classList.remove('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
-                    txt.innerText = "Series Mode";
-                    $('series-cam-badge').classList.add('hidden');
-                    if (state.queue.length > 0) {
-                        this.openQueueReview(); // #1 new queue review screen
-                    } else {
-                        showToast("Series cancelled — no photos queued"); // #4
-                    }
-                }
-            }
 
             addToQueue(blob, id) {
-                // #5 snapshot GPS at capture time, not upload time
-                const capturedLat = state.location?.lat || null;
-                const capturedLng = state.location?.lng || null;
-                const capturedHeading = state.heading;
-                const capturedWeather = { ...state.weather };
-
+                // Snapshot GPS/heading/weather at capture time, not upload time
                 state.queue.push({
                     blob, id,
                     timestamp: Date.now(),
-                    lat: capturedLat,
-                    lng: capturedLng,
-                    heading: capturedHeading,
-                    weather: capturedWeather
+                    lat: state.location?.lat || null,
+                    lng: state.location?.lng || null,
+                    heading: state.heading,
+                    weather: { ...state.weather }
                 });
-                const count = state.queue.length;
-                $('series-text').innerText = `Active (${count})`;
-                // #10 live count badge on camera button
-                const badge = $('series-cam-badge');
-                badge.innerText = count; badge.classList.remove('hidden');
-                // #8 haptic feedback on queue
                 if (navigator.vibrate) navigator.vibrate(40);
-                showToast(`Photo ${count} queued`);
             }
 
             // ── QUEUE REVIEW SYSTEM (#1 #2 #3 #6 #7) ─────────────────────────
@@ -2200,19 +2164,10 @@
                 $('modal-queue').classList.add('hidden');
             }
 
-            // #3 — Add more photos without losing the queue
+            // Add more photos without losing the queue — just reopen the camera
             addMoreToQueue() {
                 $('modal-queue').classList.add('hidden');
-                // Re-activate series mode UI without clearing the queue
-                state.seriesMode = true;
-                const btn = $('series-btn'); const txt = $('series-text');
-                btn.classList.remove('bg-white', 'text-slate-500', 'border-slate-200', 'hover:bg-slate-50');
-                btn.classList.add('bg-orange-50', 'text-orange-700', 'border-orange-300', 'animate-pulse');
-                const count = state.queue.length;
-                txt.innerText = `Active (${count})`;
-                const badge = $('series-cam-badge');
-                badge.innerText = count; badge.classList.remove('hidden');
-                showToast(`Series active — ${count} queued. Keep shooting, tap button to finish.`);
+                this.openCamera();
             }
 
             // #2 — Caption mode toggle
@@ -2452,17 +2407,35 @@
                 $('btn-save-upload').innerText = `Upload ${count} Photos`;
                 state.editMode = false;
                 state.batchMode = true;
-                const useLastBtn = $('use-last-btn');
-                if (state.lastCaption.title || state.lastCaption.desc) {
-                    useLastBtn.classList.remove('hidden');
-                    useLastBtn.title = `"${state.lastCaption.title || state.lastCaption.desc}"`;
-                } else {
-                    useLastBtn.classList.add('hidden');
-                }
+                // Show per-field Use Last buttons
+                const titleBtn2 = $('use-last-title-btn');
+                const descBtn2  = $('use-last-desc-btn');
+                if (titleBtn2) titleBtn2.classList.toggle('hidden', !state.lastCaption.title);
+                if (descBtn2)  descBtn2.classList.toggle('hidden',  !state.lastCaption.desc);
                 $('modal-caption').classList.remove('hidden');
                 lucide.createIcons();
             }
 
+            // Clear any field by id — used by inline onclick buttons
+            // (inline handlers can't access the module-scoped $ shorthand)
+            clearField(id) {
+                const el = document.getElementById(id);
+                if (el) { el.value = ''; el.focus(); }
+            }
+
+            useLastTitle() {
+                if (!state.lastCaption.title) return showToast('No previous title');
+                document.getElementById('cap-title').value = state.lastCaption.title;
+                document.getElementById('cap-title').focus();
+            }
+
+            useLastDesc() {
+                if (!state.lastCaption.desc) return showToast('No previous description');
+                document.getElementById('cap-desc').value = state.lastCaption.desc;
+                document.getElementById('cap-desc').focus();
+            }
+
+            // Legacy: kept so queue/per-photo modals still work
             useLastCaption() {
                 if(!state.lastCaption.title && !state.lastCaption.desc) return;
                 $('cap-title').value = state.lastCaption.title;
@@ -2490,13 +2463,20 @@
                 const badge = $('exif-badge');
                 (isGallery && state.tempMeta && state.tempMeta.lat) ? badge.classList.remove('hidden') : badge.classList.add('hidden');
 
-                // Show "Use Last" button only on new entries when there's a previous caption to reuse
-                const useLastBtn = $('use-last-btn');
-                if (!isEdit && (state.lastCaption.title || state.lastCaption.desc)) {
-                    useLastBtn.classList.remove('hidden');
-                    useLastBtn.title = `"${state.lastCaption.title || state.lastCaption.desc}"`;
-                } else {
-                    useLastBtn.classList.add('hidden');
+                // Show per-field "Use Last" buttons only on new entries
+                const titleBtn = $('use-last-title-btn');
+                const descBtn  = $('use-last-desc-btn');
+                if (!isEdit && state.lastCaption.title) {
+                    titleBtn.classList.remove('hidden');
+                    titleBtn.title = state.lastCaption.title;
+                } else if (titleBtn) {
+                    titleBtn.classList.add('hidden');
+                }
+                if (!isEdit && state.lastCaption.desc) {
+                    descBtn.classList.remove('hidden');
+                    descBtn.title = state.lastCaption.desc;
+                } else if (descBtn) {
+                    descBtn.classList.add('hidden');
                 }
 
                 state.editMode = isEdit;
