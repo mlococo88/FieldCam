@@ -452,8 +452,11 @@
                     class="pdf-tool-btn p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition text-sm font-bold">T</button>
                 <button onclick="window.app.showPDFStampPicker()" id="pdf-tool-stamp" title="Stamps"
                     class="pdf-tool-btn p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition text-sm">⭐</button>
-                <button onclick="window.app.selectPDFTool('eraser')" id="pdf-tool-eraser" title="Eraser (or hold S Pen barrel button)"
-                    class="pdf-tool-btn p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition text-sm">⌫</button>
+                <button onclick="window.app.selectPDFTool('eraser')" id="pdf-tool-eraser" title="Eraser"
+                    class="pdf-tool-btn flex items-center gap-1 px-2 py-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition text-xs font-bold border border-transparent hover:border-red-500">
+                    <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 20H7L3 16l11.09-11.09a2 2 0 0 1 2.83 0l4.17 4.17a2 2 0 0 1 0 2.83L13 20"/><path d="M6.09 7.09L3 4"/></svg>
+                    Erase
+                </button>
             </div>
             <div class="w-px h-6 bg-slate-700 flex-none mx-1"></div>
             <!-- Color + size -->
@@ -1819,8 +1822,7 @@
                     const typeIcon = item.type === 'note'
                         ? `<div class="w-12 h-12 rounded-lg bg-yellow-100 flex items-center justify-center text-xl flex-none">📝</div>`
                         : `<div class="w-12 h-12 rounded-lg bg-slate-200 overflow-hidden flex-none relative">
-                               ${item.blob ? `<img src="${URL.createObjectURL(item.blob)}" class="w-full h-full object-cover" onerror="this.style.display='none'">` : ''}
-                               <div class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">📷</div>
+                               <div class="absolute inset-0 flex items-center justify-center text-slate-400 text-xl">📷</div>
                            </div>`;
 
                     const statusBadge = isFailed
@@ -1968,6 +1970,7 @@
                         const desc = code === 0 ? "Clear" : code < 4 ? "Cloudy" : code < 50 ? "Fog" : "Precip";
                         state.weather = { temp: `${temp}°F`, desc, lastFetch: Date.now() };
                         $('wx-val').innerText = `${desc}, ${temp}°F`;
+                        $('wx-val').className = "text-xs font-medium text-slate-600 truncate w-full"; // reset error styling
                         this.updateOverlayStatus(); // #14
                     } else {
                         throw new Error("No weather data");
@@ -2002,16 +2005,20 @@
             }
 
             switchTab(id) {
+                const tabEl = $(`tab-${id}`);
+                if (!tabEl) { console.warn('switchTab: unknown tab', id); return; }
 
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-                $(`tab-${id}`).classList.add('active');
+                tabEl.classList.add('active');
                 document.querySelectorAll('.nav-item').forEach(el => {
                     el.classList.remove('text-blue-600', 'active');
                     el.classList.add('text-slate-400');
                 });
                 const nav = $(`nav-${id}`);
-                nav.classList.add('text-blue-600', 'active');
-                nav.classList.remove('text-slate-400');
+                if (nav) {
+                    nav.classList.add('text-blue-600', 'active');
+                    nav.classList.remove('text-slate-400');
+                }
                 localStorage.setItem('fp_last_tab', id); // #9 remember last tab
                 if(id === 'map') {
                     setTimeout(() => {
@@ -2332,7 +2339,14 @@
                 canvas.toBlob(blob => {
                     if (!blob) return;
                     const id = Date.now().toString() + '_' + Math.random().toString(36).slice(2, 5);
-                    this._cameraCaptured.push({ blob, id, timestamp: Date.now() });
+                    this._cameraCaptured.push({
+                        blob, id,
+                        timestamp: Date.now(),
+                        lat: state.location?.lat || null,
+                        lng: state.location?.lng || null,
+                        heading: state.heading,
+                        weather: { ...state.weather }
+                    });
 
                     // Show thumbnail of last capture
                     const thumbUrl = URL.createObjectURL(blob);
@@ -2374,13 +2388,8 @@
 
                 if (captured.length === 0) return;
 
-                if (state.seriesMode) {
-                    // Already queued — nothing more to do
-                    return;
-                }
-
-                if (captured.length === 1) {
-                    // Single photo — normal caption flow
+                if (captured.length === 1 && state.queue.length === 0) {
+                    // Single photo, no existing queue — normal caption flow
                     state.pendingBlob = captured[0].blob;
                     state.pendingId = captured[0].id;
                     state.pendingType = 'photo';
@@ -2388,8 +2397,8 @@
                     state.editMode = false;
                     this.openCaptionModal(captured[0].blob);
                 } else {
-                    // Multiple captures in one session — treat as batch
-                    state.queue = captured;
+                    // Multiple captures OR adding to existing queue — append and review
+                    state.queue = [...state.queue, ...captured];
                     this.openQueueReview();
                 }
             }
@@ -2546,6 +2555,10 @@
 
             _renderQueueGrid() {
                 const grid = $('queue-grid');
+                // Revoke any existing blob URLs before clearing to prevent memory leaks
+                grid.querySelectorAll('img[src^="blob:"]').forEach(img => {
+                    URL.revokeObjectURL(img.src);
+                });
                 grid.innerHTML = '';
                 state.queue.forEach((item, idx) => {
                     const div = document.createElement('div');
@@ -3401,7 +3414,11 @@
                 if (isNew) {
                     meta = { id, projectId: state.project, type: 'note', title, detailedDesc: text, text, timestamp: Date.now(), dateString: formatDate(Date.now()), lat: state.location?.lat || null, lng: state.location?.lng || null };
                 } else {
-                    meta = { ...state.items.find(i => i.id === id), title, detailedDesc: text, text };
+                    // Guard: item might not be in state.items if data hasn't loaded yet
+                    const existing = state.items.find(i => i.id === id) || {};
+                    meta = { ...existing, id, projectId: state.project, type: 'note', title, detailedDesc: text, text };
+                    if (!meta.timestamp) meta.timestamp = Date.now();
+                    if (!meta.dateString) meta.dateString = formatDate(meta.timestamp);
                 }
                 if(!state.online) {
                     await this.offlineMgr.addToOutbox({ id, meta, type:'note' });
@@ -3637,7 +3654,12 @@
             async updateEntry() {
                 const item = state.currentItem;
                 const newTitle = $('cap-title').value.trim(), newDesc = $('cap-desc').value.trim();
-                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id), { title: newTitle, detailedDesc: newDesc, caption: (newTitle && newDesc) ? `${newTitle} - ${newDesc}` : newDesc }, { merge: true });
+                const newCaption = (newTitle && newDesc) ? `${newTitle} - ${newDesc}` : (newDesc || newTitle);
+                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
+                    { title: newTitle, detailedDesc: newDesc, caption: newCaption },
+                    { merge: true });
+                // Update lastCaption so "Use Last" reflects the edited values
+                if (newTitle || newDesc) state.lastCaption = { title: newTitle, desc: newDesc };
                 this.closeCaptionModal();
                 showToast("Entry Updated");
             }
@@ -4339,6 +4361,18 @@
                     const plansRef = ref(state.storage, `artifacts/${appId}/public/plans/${state.project}`);
                     const result   = await listAll(plansRef);
 
+                    // Load any name/category overrides stored via renamePlan
+                    let metaOverrides = {};
+                    try {
+                        const metaSnap = await getDocs(
+                            collection(state.db, `artifacts/${appId}/public/data/plan_meta`)
+                        );
+                        metaSnap.forEach(d => {
+                            const data = d.data();
+                            metaOverrides[data.storagePath] = data;
+                        });
+                    } catch(e) {}
+
                     list.querySelectorAll('.plan-card').forEach(el => el.remove());
 
                     // Build recent section
@@ -4389,9 +4423,10 @@
                     $('nav-plans-badge').classList.remove('hidden');
 
                     items.forEach(({ item, meta }) => {
-                        const name     = meta.customMetadata?.displayName || item.name.replace(/\.pdf$/i, '');
-                        const category = meta.customMetadata?.category || '';
-                        const pageCount= meta.customMetadata?.pageCount || '';
+                        const override  = metaOverrides[item.fullPath] || {};
+                        const name      = override.displayName || meta.customMetadata?.displayName || item.name.replace(/\.pdf$/i, '');
+                        const category  = override.category    || meta.customMetadata?.category    || '';
+                        const pageCount = meta.customMetadata?.pageCount || '';
                         const sizeKB   = Math.round((meta.size || 0) / 1024);
                         const sizeStr  = sizeKB > 1024 ? (sizeKB/1024).toFixed(1) + ' MB' : sizeKB + ' KB';
                         const uploaded = meta.timeCreated ? new Date(meta.timeCreated).toLocaleDateString() : '';
@@ -4516,13 +4551,14 @@
                 const catChoice = window.prompt('Category (' + cats.join('/') + '):', currentCategory || 'Other');
                 const category = cats.includes(catChoice) ? catChoice : (currentCategory || 'Other');
                 try {
-                    // Firebase Storage doesn't support metadata-only update via web SDK directly
-                    // We update by re-downloading and re-uploading with new metadata
-                    // For now update customMetadata via updateMetadata (v9 SDK)
-                    const { updateMetadata } = await import('https://www.gstatic.com/firebasejs/11.6.1/firebase-storage.js');
-                    await updateMetadata(ref(state.storage, storagePath), {
-                        customMetadata: { displayName: newName.trim(), category }
-                    });
+                    // updateMetadata IS part of the firebase-storage v9 SDK but was not
+                    // in the static import list. Use a Firestore document as a metadata
+                    // override — keyed by storagePath, stores displayName + category.
+                    const overrideId = btoa(storagePath).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 60);
+                    await setDoc(
+                        doc(state.db, `artifacts/${appId}/public/data/plan_meta`, overrideId),
+                        { storagePath, displayName: newName.trim(), category, updatedAt: Date.now() }
+                    );
                     showToast('Renamed to ' + newName.trim());
                     await this.loadPlansList();
                 } catch(e) {
@@ -4598,6 +4634,9 @@
 
                 const cx = (wrapW - vp.width) / 2;
                 const cy = (wrapH - vp.height) / 2;
+                // Store base offset so pinch-zoom can anchor correctly to the midpoint
+                this._pdfBaseLeft = cx;
+                this._pdfBaseTop  = cy;
                 [rc, dc].forEach(c => {
                     Object.assign(c.style, { left: cx + 'px', top: cy + 'px', position: 'absolute',
                         transform: 'translate(' + this._pdfPanX + 'px,' + this._pdfPanY + 'px) scale(' + this._pdfScale + ')',
@@ -4703,18 +4742,38 @@
             // ── TOOL MANAGEMENT ──────────────────────────────────────────────
 
             selectPDFTool(tool) {
-                this._pdfTool = tool;
+                this._pdfTool    = tool;
                 this._pdfErasing = (tool === 'eraser');
                 this.closePDFStampPicker();
+
+                // Reset all tool buttons
                 document.querySelectorAll('.pdf-tool-btn').forEach(b => {
-                    b.classList.remove('bg-blue-600', 'text-white', 'active-tool');
+                    b.classList.remove('bg-blue-600', 'bg-red-600', 'text-white', 'active-tool', 'border-red-500');
                     b.classList.add('text-slate-400');
+                    b.classList.remove('border-transparent');
                 });
+
                 const btn = $('pdf-tool-' + tool);
-                if (btn) { btn.classList.add('bg-blue-600', 'text-white'); btn.classList.remove('text-slate-400'); }
+                if (btn) {
+                    btn.classList.remove('text-slate-400');
+                    btn.classList.add('text-white', 'active-tool');
+                    // Eraser gets red highlight, everything else gets blue
+                    if (tool === 'eraser') {
+                        btn.classList.add('bg-red-600', 'border-red-400');
+                    } else {
+                        btn.classList.add('bg-blue-600');
+                    }
+                }
+
                 // Cursor style
                 const dc = $('pdf-draw-canvas');
-                if (dc) dc.style.cursor = tool === 'text' ? 'text' : tool === 'eraser' ? 'cell' : 'crosshair';
+                if (dc) {
+                    if (tool === 'text') dc.style.cursor = 'text';
+                    else if (tool === 'eraser') dc.style.cursor = 'cell';
+                    else dc.style.cursor = 'crosshair';
+                }
+
+                if (tool === 'eraser') showToast('Eraser active — draw to erase markup', 1500);
             }
 
             // ── STAMP TOOL ───────────────────────────────────────────────────
@@ -4976,10 +5035,18 @@
                         const f    = dist / lastPinchDist;
                         const old  = this._pdfScale;
                         this._pdfScale = Math.min(6, Math.max(0.5, old * f));
-                        // Zoom around midpoint
-                        this._pdfPanX = mid.x - (mid.x - this._pdfPanX) * (this._pdfScale / old);
-                        this._pdfPanY = mid.y - (mid.y - this._pdfPanY) * (this._pdfScale / old);
-                        // Follow finger movement
+
+                        // Correct zoom anchor:
+                        // panX/Y is relative to canvas base position (cx,cy), NOT screen origin.
+                        // Use anchor = (midScreen - wrapOrigin - canvasBase) so zoom
+                        // expands/contracts around the actual finger midpoint.
+                        const wrapRect = $('pdf-canvas-wrap').getBoundingClientRect();
+                        const anchorX  = mid.x - wrapRect.left - (this._pdfBaseLeft || 0);
+                        const anchorY  = mid.y - wrapRect.top  - (this._pdfBaseTop  || 0);
+                        this._pdfPanX  = anchorX - (anchorX - this._pdfPanX) * (this._pdfScale / old);
+                        this._pdfPanY  = anchorY - (anchorY - this._pdfPanY) * (this._pdfScale / old);
+
+                        // Follow midpoint movement (pan while pinching)
                         this._pdfPanX += mid.x - lastPinchMid.x;
                         this._pdfPanY += mid.y - lastPinchMid.y;
                         this._applyPDFTransform();
@@ -4987,18 +5054,31 @@
                     }
                 }, { passive: false, ...sig });
 
-                // Double-tap to reset zoom (touch)
-                let lastTouchTap = 0;
+                // Double-tap to reset zoom (touch only — use instance var so pen
+                // pointerdown can clear it and prevent accidental triggers)
+                this._lastFingerTap = this._lastFingerTap || 0;
                 dc.addEventListener('touchend', (e) => {
-                    touchPointers.delete(e.changedTouches[0]?.identifier);
+                    // touchend uses touch identifiers, NOT pointer IDs — handle separately
+                    Array.from(e.changedTouches).forEach(t => {
+                        // Remove any matching pointer from touchPointers
+                        for (const [pid, pe] of touchPointers.entries()) {
+                            if (Math.abs(pe.clientX - t.clientX) < 5 && Math.abs(pe.clientY - t.clientY) < 5) {
+                                touchPointers.delete(pid); break;
+                            }
+                        }
+                    });
                     if (touchPointers.size === 0) {
                         singlePanStart = null; lastPinchDist = null;
                         const now = Date.now();
-                        if (now - lastTouchTap < 300) {
+                        // Only allow double-tap reset if:
+                        // 1. Both taps were recent (< 300ms)
+                        // 2. Pen has NOT been used in the last 1s (prevents false triggers)
+                        const penRecent = now - (this._lastPenDown || 0) < 1000;
+                        if (!penRecent && now - this._lastFingerTap < 300) {
                             this._pdfScale=1; this._pdfPanX=0; this._pdfPanY=0;
                             this._applyPDFTransform(); showToast('Zoom reset', 1000);
                         }
-                        lastTouchTap = now;
+                        this._lastFingerTap = now;
                     }
                 }, { passive: true, ...sig });
 
@@ -5021,6 +5101,7 @@
                     if (e.pointerType === 'touch') return; // already handled above
                     dc.setPointerCapture(e.pointerId);
                     this._hideHoverCursor();
+                    this._lastPenDown = Date.now(); // prevent double-tap zoom on next touchend
 
                     // Check barrel button immediately on pen-down
                     if (isBarrel(e)) {
@@ -5045,6 +5126,11 @@
                     this._pdfUndoStack.push(dc.toDataURL());
                     if (this._pdfUndoStack.length > 20) this._pdfUndoStack.shift();
                     this._pdfDrawing = true;
+
+                    // Always reset composite op at stroke start so eraser state
+                    // can't bleed into subsequent pen strokes after a tool switch
+                    dCtx.globalCompositeOperation = 'source-over';
+                    dCtx.globalAlpha = 1;
 
                     if (['arrow','rect','circle'].includes(tool)) {
                         this._pdfShapeStart = pos;
@@ -5216,8 +5302,20 @@
 
                 merged.toBlob(async (blob) => {
                     if (!blob) return;
-                    const id  = 'plan_' + Date.now() + '_p' + this._pdfPageNum;
-                    const num = (state.items.filter(i=>i.type==='photo').length + 1);
+
+                    // Deterministic ID — same PDF page always maps to the same ID
+                    // so repeated saves overwrite the existing log entry and storage
+                    // file instead of creating duplicates.
+                    const pathKey = (this._currentPDFMeta?.storagePath || 'unknown')
+                        .replace(/[^a-zA-Z0-9]/g, '_').slice(-30);
+                    const id = `plan_${pathKey}_p${this._pdfPageNum}`;
+
+                    // Re-use existing photoNumber if this entry was saved before,
+                    // otherwise assign the next available number.
+                    const existing = state.items.find(i => i.id === id);
+                    const num = existing?.photoNumber
+                        ?? (state.items.filter(i => i.type === 'photo').reduce((m, i) => Math.max(m, i.photoNumber || 0), 0) + 1);
+
                     const meta = {
                         id, projectId: state.project, type: 'photo', subtype: 'plan',
                         title, detailedDesc: notes, caption: title,
@@ -5240,7 +5338,7 @@
                         if (tc) tc.style.outline = '2px solid #22c55e';
                         const lbl = tc?.nextElementSibling;
                         if (lbl && !lbl.innerHTML.includes('●')) lbl.innerHTML += ' <span style="color:#22c55e">●</span>';
-                        showToast('✓ Page saved to project');
+                        showToast(existing ? '✓ Page updated in project' : '✓ Page saved to project');
                     } catch(e) { showToast('Save failed: ' + e.message); }
                 }, 'image/jpeg', 0.92);
             }
