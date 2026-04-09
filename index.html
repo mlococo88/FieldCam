@@ -4645,17 +4645,24 @@
 
                 await page.render({ canvasContext: rc.getContext('2d'), viewport: vp }).promise;
 
-                // Load persisted markup if any
+                // Load persisted markup if any — must be awaited so the canvas
+                // is fully populated before this function returns. Without await,
+                // a call to _saveMarkup() immediately after would see an empty canvas
+                // and delete the saved markup from IndexedDB.
                 const dCtx = dc.getContext('2d');
                 dCtx.clearRect(0, 0, dc.width, dc.height);
                 const markupKey = this._markupKey(this._pdfPageNum);
                 const saved = await this.offlineMgr.loadMarkup(markupKey);
                 if (saved) {
-                    const img = new Image();
-                    img.onload = () => dCtx.drawImage(img, 0, 0);
-                    img.src = saved;
+                    await new Promise(resolve => {
+                        const img = new Image();
+                        img.onload  = () => { dCtx.drawImage(img, 0, 0); resolve(); };
+                        img.onerror = () => resolve(); // resolve even on error so we don't hang
+                        img.src = saved;
+                    });
                 }
                 this._pdfUndoStack = [];
+                this._pdfDirty = false; // track whether user has drawn anything new this session
                 this._highlightThumb(this._pdfPageNum);
             }
 
@@ -4696,7 +4703,10 @@
             }
 
             async _checkUnsaved() {
-                await this._saveMarkup(); // always auto-save markup when navigating
+                // Save when navigating only if new markup was drawn this session.
+                // If the canvas was just loaded from storage and nothing new was
+                // drawn, skipping the save preserves the stored version.
+                if (this._pdfDirty) await this._saveMarkup();
             }
 
             // ── THUMBNAIL STRIP ──────────────────────────────────────────────
@@ -4863,6 +4873,7 @@
                 dCtx.fillText(text, x, y);
                 dCtx.restore();
                 this._pdfTextPos = null;
+                this._pdfDirty = true;
                 this._saveMarkup();
             }
 
@@ -5119,6 +5130,7 @@
                         this._pdfUndoStack.push(dc.toDataURL());
                         if (this._pdfUndoStack.length > 20) this._pdfUndoStack.shift();
                         this._placePDFStamp(dCtx, pos.x, pos.y);
+                        this._pdfDirty = true;
                         this._saveMarkup();
                         return;
                     }
@@ -5164,14 +5176,16 @@
                     const tool    = this._pdfBarrelErasing ? 'eraser' : this._pdfTool;
                     const penSize = (parseFloat($('pdf-pen-size').value) || 4) / this._pdfScale;
                     const color   = $('pdf-pen-color').value;
-                    // Pressure sensitivity: pen reports 0–1, mouse always 0.5
-                    const pressure = (e.pointerType === 'pen' && e.pressure > 0) ? e.pressure : 0.8;
 
                     if (tool === 'pen') {
                         dCtx.globalCompositeOperation = 'source-over';
                         dCtx.globalAlpha  = 1;
                         dCtx.strokeStyle  = color;
-                        dCtx.lineWidth    = penSize * (0.4 + pressure * 0.6);
+                        // Always solid: Math.max(1.5, ...) prevents sub-pixel widths
+                        // that render as faint/antialiased strokes when zoomed in.
+                        // No pressure multiplier — constant width keeps round caps
+                        // at adjacent segment endpoints the same size so they join seamlessly.
+                        dCtx.lineWidth    = Math.max(1.5, penSize);
                         dCtx.lineTo(pos.x, pos.y); dCtx.stroke();
                         dCtx.beginPath(); dCtx.moveTo(pos.x, pos.y);
 
@@ -5196,7 +5210,7 @@
                         dCtx.putImageData(shapeSnap, 0, 0);
                         dCtx.globalCompositeOperation = 'source-over';
                         dCtx.globalAlpha = 1;
-                        this._drawShapePreview(dCtx, tool, this._pdfShapeStart, pos, color, penSize * 1.5);
+                        this._drawShapePreview(dCtx, tool, this._pdfShapeStart, pos, color, Math.max(1.5, penSize) * 1.5);
                     }
                 }, { passive: false, ...sig });
 
@@ -5223,6 +5237,7 @@
                     this._pdfDrawing    = false;
                     shapeSnap           = null;
                     this._pdfShapeStart = null;
+                    this._pdfDirty = true;  // user drew something — safe to auto-save
                     this._saveMarkup();
                 }, { passive: true, ...sig });
 
@@ -5255,7 +5270,7 @@
                 const dc   = $('pdf-draw-canvas');
                 const dCtx = dc.getContext('2d');
                 const img  = new Image();
-                img.onload = () => { dCtx.clearRect(0,0,dc.width,dc.height); dCtx.drawImage(img,0,0); this._saveMarkup(); };
+                img.onload = () => { dCtx.clearRect(0,0,dc.width,dc.height); dCtx.drawImage(img,0,0); this._pdfDirty = true; this._saveMarkup(); };
                 img.src = this._pdfUndoStack.pop();
             }
 
@@ -5338,13 +5353,16 @@
                         if (tc) tc.style.outline = '2px solid #22c55e';
                         const lbl = tc?.nextElementSibling;
                         if (lbl && !lbl.innerHTML.includes('●')) lbl.innerHTML += ' <span style="color:#22c55e">●</span>';
+                        this._pdfDirty = false; // checkpointed — no unsaved work
                         showToast(existing ? '✓ Page updated in project' : '✓ Page saved to project');
                     } catch(e) { showToast('Save failed: ' + e.message); }
                 }, 'image/jpeg', 0.92);
             }
 
             closePDFMarkup() {
-                this._saveMarkup(); // auto-save on close
+                // Only save if user drew something new — prevents overwriting
+                // existing markup with an empty canvas due to async load races
+                if (this._pdfDirty) this._saveMarkup();
                 if (this._pdfPointerAbort) { this._pdfPointerAbort.abort(); this._pdfPointerAbort = null; }
                 this.cancelPDFText();
                 this.closePDFStampPicker();
