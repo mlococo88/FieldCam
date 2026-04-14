@@ -941,6 +941,13 @@
                                 <p class="text-[10px] text-slate-400">Shows original page alongside markup</p>
                             </div>
                         </label>
+                        <label class="flex items-center gap-2 cursor-pointer col-span-2">
+                            <input type="checkbox" id="pdf-sec-map" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <div>
+                                <span class="text-sm text-slate-700">Site Map</span>
+                                <p class="text-[10px] text-slate-400">Map showing all photo locations with numbered markers</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -1074,6 +1081,13 @@
                 <input type="text" id="new-proj-name" placeholder="Name..." class="flex-1 border border-slate-300 rounded-lg p-2 text-sm">
                 <button onclick="window.app.createProject()" class="bg-blue-600 text-white rounded-lg px-4 font-bold text-sm">Add</button>
             </div>
+            <div class="border-t border-slate-200 my-4"></div>
+            <label class="text-xs font-bold text-slate-500 uppercase mb-2 block">Photo Management</label>
+            <button onclick="window.app.renumberPhotos()" class="w-full py-2.5 mb-2 bg-amber-50 border border-amber-200 text-amber-800 font-bold rounded-xl text-sm hover:bg-amber-100 flex items-center justify-center gap-2">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/><path d="M15 15l2 2 4-4"/></svg>
+                Renumber Photos in Order
+            </button>
+            <p class="text-[10px] text-slate-400 mb-4 text-center">Reassigns photo numbers chronologically — useful after deleting photos or if numbering is out of sync.</p>
             <button onclick="window.app.toggleSettings()" class="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-200">Close</button>
         </div>
     </div>
@@ -1203,7 +1217,7 @@
             // Layout
             orientation: 'portrait', photosPerPage: 2, sortOrder: 'asc', accentColor: '#2563eb',
             // Sections
-            secIndex: true, secNotes: true, secPhotos: true, secSketches: true, secPlans: true, secPlansSideBySide: false,
+            secIndex: true, secNotes: true, secPhotos: true, secSketches: true, secPlans: true, secPlansSideBySide: false, secMap: true,
             // Photo options
             rawPhotos: false, showGPS: true, showWeather: true, showHeading: true,
             // Header/footer
@@ -2036,6 +2050,58 @@
                 $('settings-modal').classList.add('hidden');
             }
 
+            async renumberPhotos() {
+                // Get all photos and sketches for this project, sorted chronologically
+                const toRenumber = state.items
+                    .filter(i => i.type === 'photo' || i.type === 'sketch')
+                    .sort((a, b) => a.timestamp - b.timestamp);
+
+                if (toRenumber.length === 0) return showToast('No photos to renumber');
+
+                // Preview what will happen
+                const preview = toRenumber.slice(0, 3).map((p, i) =>
+                    `#${p.photoNumber || '?'} → #${i + 1}  ${p.title || 'Untitled'}`
+                ).join('\n') + (toRenumber.length > 3 ? `\n...and ${toRenumber.length - 3} more` : '');
+
+                if (!confirm(
+                    `Renumber ${toRenumber.length} photo${toRenumber.length !== 1 ? 's' : ''} in chronological order?\n\n` +
+                    `Preview:\n${preview}\n\n` +
+                    `This updates photo numbers in Firestore. It cannot be undone.`
+                )) return;
+
+                this.closeSettings();
+                toggleLoader(true, 'Renumbering photos…');
+                try {
+                    let updated = 0;
+                    // Process in batches of 5 to avoid hammering Firestore
+                    for (let i = 0; i < toRenumber.length; i++) {
+                        const item = toRenumber[i];
+                        const newNum = i + 1;
+                        if (item.photoNumber !== newNum) {
+                            await setDoc(
+                                doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
+                                { photoNumber: newNum },
+                                { merge: true }
+                            );
+                            updated++;
+                        }
+                        // Update progress
+                        if ((i + 1) % 5 === 0 || i === toRenumber.length - 1) {
+                            toggleLoader(true, `Renumbering… ${i + 1} of ${toRenumber.length}`);
+                        }
+                    }
+                    showToast(
+                        updated > 0
+                            ? `✓ Renumbered ${updated} photo${updated !== 1 ? 's' : ''}`
+                            : 'Photos already in order — no changes needed'
+                    );
+                } catch(e) {
+                    alert('Renumber failed: ' + e.message);
+                } finally {
+                    toggleLoader(false);
+                }
+            }
+
             toggleSettings() {
                 const m = $('settings-modal');
                 m.classList.toggle('hidden');
@@ -2360,9 +2426,9 @@
                     $('camera-done-btn').classList.remove('hidden');
                     $('camera-done-placeholder').classList.add('hidden');
 
-                    // Always queue — closeCameraAndReview decides single vs batch
-                    this.addToQueue(blob, id);
-                    showToast(`Photo ${state.queue.length} queued`);
+                    // Show count toast but don't add to state.queue yet —
+                    // closeCameraAndReview builds the queue from _cameraCaptured
+                    showToast(`Photo ${this._cameraCaptured.length} captured`);
                 }, 'image/jpeg', 0.92);
             }
 
@@ -2389,15 +2455,22 @@
                 if (captured.length === 0) return;
 
                 if (captured.length === 1 && state.queue.length === 0) {
-                    // Single photo, no existing queue — normal caption flow
+                    // Single photo, no pre-existing queue — normal caption flow
                     state.pendingBlob = captured[0].blob;
                     state.pendingId = captured[0].id;
                     state.pendingType = 'photo';
                     state.tempMeta = null;
                     state.editMode = false;
+                    // Snapshot GPS for this single photo
+                    state.tempMeta = {
+                        timestamp: captured[0].timestamp,
+                        lat: captured[0].lat,
+                        lng: captured[0].lng
+                    };
                     this.openCaptionModal(captured[0].blob);
                 } else {
-                    // Multiple captures OR adding to existing queue — append and review
+                    // Multiple captures OR adding to existing queue — build queue and review
+                    // captured items come from _cameraCaptured which already has GPS data
                     state.queue = [...state.queue, ...captured];
                     this.openQueueReview();
                 }
@@ -2754,9 +2827,15 @@
                 $('queue-progress-wrap').classList.remove('hidden');
                 $('queue-action-btns').classList.add('hidden');
 
-                // Calculate starting photo number
-                const existing = state.items.filter(i => i.type === 'photo');
-                let currentMax = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+                // Snapshot the highest photo number NOW, before any uploads start.
+                // The Firestore real-time listener updates state.items as each photo
+                // lands — if we read state.items mid-loop, photos 2+ in the batch
+                // see the newly uploaded photos and get wrong (doubled) numbers.
+                // Freezing currentMax here prevents that race entirely.
+                const frozenMax = state.items
+                    .filter(i => i.type === 'photo')
+                    .reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+                let currentMax = frozenMax;
 
                 let completed = 0;
                 let savedOffline = 0;
@@ -2981,8 +3060,10 @@
                 if (state.batchMode) {
                     const doOverlay = $('burn-toggle').checked;
                     const count = state.queue.length;
-                    const existing = state.items.filter(i => i.type === 'photo');
-                    let currentMax = existing.reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+                    // Freeze max before loop — Firestore listener updates state.items mid-upload
+                    let currentMax = state.items
+                        .filter(i => i.type === 'photo')
+                        .reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
                     toggleLoader(true, `Processing ${count} items...`);
                     this.closeCaptionModal();
                     let savedOffline = 0;
@@ -3949,7 +4030,8 @@
                     'pdf-sec-index': 'secIndex', 'pdf-sec-notes': 'secNotes',
                     'pdf-sec-photos': 'secPhotos', 'pdf-sec-sketches': 'secSketches',
                     'pdf-sec-plans': 'secPlans',
-                    'pdf-sec-plans-sidebyside': 'secPlansSideBySide'
+                    'pdf-sec-plans-sidebyside': 'secPlansSideBySide',
+                    'pdf-sec-map': 'secMap'
                 };
                 Object.entries(checks).forEach(([id, key]) => {
                     const el = document.getElementById(id); if(el) el.checked = !!o[key];
@@ -3969,7 +4051,8 @@
                     'pdf-sec-index': 'secIndex', 'pdf-sec-notes': 'secNotes',
                     'pdf-sec-photos': 'secPhotos', 'pdf-sec-sketches': 'secSketches',
                     'pdf-sec-plans': 'secPlans',
-                    'pdf-sec-plans-sidebyside': 'secPlansSideBySide'
+                    'pdf-sec-plans-sidebyside': 'secPlansSideBySide',
+                    'pdf-sec-map': 'secMap'
                 };
                 Object.entries(checks).forEach(([id, key]) => {
                     const el = document.getElementById(id); if(el) o[key] = el.checked;
@@ -4019,6 +4102,11 @@
                     const contentW = pageWidth - margin * 2;
                     const isLandscape = o.orientation === 'landscape';
                     let pageNum = 1;
+
+                    // ── Bookmark / outline tracking ─────────────────────
+                    // Each entry: { title, page, children: [{title, page}] }
+                    const bmTree = [];
+
                     const accent = o.accentColor || '#2563eb';
                     const hexRGB = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
                     const [ar,ag,ab] = hexRGB(accent);
@@ -4042,8 +4130,10 @@
                         doc.setTextColor(0,0,0);
                     };
 
-                    const newPage = (totalPages) => {
-                        addFooterText(pageNum, totalPages || '?');
+                    const newPage = () => {
+                        // Do NOT write footer here — the final stamp loop
+                        // writes all footers at once with the correct total.
+                        // Writing here with '?' then overwriting caused doubled text.
                         doc.addPage(); pageNum++;
                         addRunningHeader();
                     };
@@ -4059,6 +4149,7 @@
 
                     // ── COVER PAGE ──────────────────────────────────────────
                     if (o.cover) {
+                        bmTree.push({ title: o.title || 'Field Inspection Report', page: 1, children: [] });
                         doc.setFillColor(ar,ag,ab);
                         doc.rect(0, 0, pageWidth, 20, 'F');
                         doc.setFontSize(24); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
@@ -4104,6 +4195,8 @@
                         if (imgItems.length > 0) {
                             doc.addPage(); pageNum++;
                             addRunningHeader();
+                            const bmIndex = { title: 'Photo Index', page: pageNum, children: [] };
+                            bmTree.push(bmIndex);
                             let y = sectionHeader('Photo Index');
                             doc.setFontSize(8); doc.setFont("helvetica","bold"); doc.setTextColor(80,80,80);
                             doc.text('#', margin, y); doc.text('Title / Location', margin+15, y);
@@ -4118,8 +4211,12 @@
                                     : [];
                                 const rowH = 8 + (descLines.length * 4); // 8 for title line, 4 per desc line
 
-                                if (y + rowH > pageHeight-18) { newPage('?'); y = 22; }
+                                if (y + rowH > pageHeight-18) { newPage(); y = 22; }
                                 if (idx%2===0) { doc.setFillColor(248,250,252); doc.rect(margin, y-3, contentW, rowH + 2, 'F'); }
+
+                                // Child bookmark for each index entry
+                                const idxLabel = p.type==='sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber||idx+1);
+                                bmIndex.children.push({ title: idxLabel + ' — ' + (p.title||'Untitled'), page: pageNum });
 
                                 // Photo number
                                 doc.setFontSize(7.5); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
@@ -4152,11 +4249,14 @@
                         if (notes.length > 0) {
                             doc.addPage(); pageNum++;
                             addRunningHeader();
+                            const bmNotes = { title: 'Field Notes', page: pageNum, children: [] };
+                            bmTree.push(bmNotes);
                             let y = sectionHeader('Field Notes');
                             notes.forEach(n => {
                                 const lines = doc.splitTextToSize(n.text || n.detailedDesc || '', contentW-8);
                                 const bh = 14 + lines.length * 4.5 + 6;
-                                if (y + bh > pageHeight-15) { newPage('?'); y = 22; }
+                                if (y + bh > pageHeight-15) { newPage(); y = 22; }
+                                bmNotes.children.push({ title: n.title || 'Note', page: pageNum });
                                 const sy = y;
                                 doc.setFillColor(255,252,235); doc.setDrawColor(ar,ag,ab);
                                 doc.roundedRect(margin, y, contentW, bh, 2, 2, 'FD');
@@ -4178,6 +4278,8 @@
                         if (items.length === 0) return;
                         doc.addPage(); pageNum++;
                         addRunningHeader();
+                        const bmSection = { title: secTitle, page: pageNum, children: [] };
+                        bmTree.push(bmSection);
                         let y = sectionHeader(secTitle);
                         const cols = ppp === 4 ? 2 : 1;
                         const imgMaxH = ppp === 1 ? (isLandscape ? 140 : 115) : ppp === 2 ? 90 : 65;
@@ -4193,13 +4295,19 @@
 
                             // New page when needed
                             if (posY + cellH > pageHeight - 15 && !(i === 0)) {
-                                newPage('?');
+                                newPage();
                                 y = sectionHeader(secTitle);
                                 col = 0;
                             }
                             const drawY = y;
 
                             try {
+                                // Child bookmark for this photo/sketch (first column = new item on this page)
+                                if (col === 0) {
+                                    const itemLabel = p.type === 'sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber || i+1);
+                                    bmSection.children.push({ title: itemLabel + ' — ' + (p.title || 'Untitled'), page: pageNum });
+                                }
+
                                 let imgUrl = p.url;
                                 if (o.rawPhotos && p.rawStoragePath) {
                                     try { imgUrl = await getDownloadURL(ref(state.storage, p.rawStoragePath)); } catch(e) {}
@@ -4238,7 +4346,7 @@
                                 col = 0;
                                 y += cellH + 8;
                                 if (y > pageHeight - 15 && i < items.length - 1) {
-                                    newPage('?'); y = sectionHeader(secTitle);
+                                    newPage(); y = sectionHeader(secTitle);
                                 }
                             }
                         }
@@ -4257,18 +4365,21 @@
                                 if (!groups[src]) groups[src] = [];
                                 groups[src].push(p);
                             });
+                            const bmPlansParent = { title: 'Annotated Plans', page: pageNum + 1, children: [] };
+                            bmTree.push(bmPlansParent);
                             for (const [srcName, pages] of Object.entries(groups)) {
                                 if (o.secPlansSideBySide) {
                                     // Side-by-side: 2-up per page (would need raw+annotated pairs)
                                     // Since we only have annotated, show 2 per page with label
                                     doc.addPage(); pageNum++;
                                     addRunningHeader();
+                                    bmPlansParent.children.push({ title: srcName, page: pageNum, children: [] });
                                     let y = sectionHeader('Annotated Plans — ' + srcName);
                                     for (let i = 0; i < pages.length; i++) {
                                         const p = pages[i];
                                         const col = i % 2;
                                         const cellW = (contentW - 5) / 2;
-                                        if (col === 0 && i > 0) { y += 90 + 25; if (y > pageHeight - 15) { newPage('?'); y = sectionHeader('Annotated Plans — ' + srcName); } }
+                                        if (col === 0 && i > 0) { y += 90 + 25; if (y > pageHeight - 15) { newPage(); y = sectionHeader('Annotated Plans — ' + srcName); } }
                                         const cx = margin + col * (cellW + 5);
                                         try {
                                             const imgData = await this.urlToBase64(p.url);
@@ -4286,9 +4397,68 @@
                                         } catch(e) {}
                                     }
                                 } else {
+                                    // addImagesSection will push a section-level bookmark;
+                                    // we want it nested under the Annotated Plans parent, so
+                                    // move it there after the call.
+                                    const beforeLen = bmTree.length;
                                     await addImagesSection('Annotated Plans — ' + srcName, pages);
+                                    if (bmTree.length > beforeLen) {
+                                        const added = bmTree.splice(beforeLen, 1)[0];
+                                        bmPlansParent.children.push(added);
+                                    }
                                 }
                             }
+                        }
+                    }
+
+                    // ── SITE MAP ────────────────────────────────────────────
+                    if (o.secMap) {
+                        const geoItems = sortedItems.filter(i => i.lat && i.lng);
+                        if (geoItems.length > 0) {
+                            toggleLoader(true, 'Rendering site map…');
+                            try {
+                                const mapCanvas = await this._renderMapForPDF(geoItems, o);
+                                if (mapCanvas) {
+                                    doc.addPage(); pageNum++;
+                                    addRunningHeader();
+                                    bmTree.push({ title: 'Site Map', page: pageNum, children: [] });
+                                    const sectionHeader2 = (title) => {
+                                        doc.setFillColor(ar,ag,ab);
+                                        doc.rect(margin, 18, contentW, 9, 'F');
+                                        doc.setFontSize(9); doc.setFont("helvetica","bold"); doc.setTextColor(255,255,255);
+                                        doc.text(title.toUpperCase(), margin + 3, 24.5);
+                                        doc.setTextColor(0,0,0);
+                                        return 33;
+                                    };
+                                    let y = sectionHeader2('Site Map — Photo Locations');
+                                    const imgData = mapCanvas.toDataURL('image/jpeg', 0.92);
+                                    const mapW = contentW;
+                                    const mapH = Math.min(mapW * (mapCanvas.height / mapCanvas.width), pageHeight - y - 20);
+                                    doc.addImage(imgData, 'JPEG', margin, y, mapW, mapH);
+                                    // Legend below map
+                                    const legY = y + mapH + 5;
+                                    doc.setFontSize(7); doc.setFont("helvetica","normal"); doc.setTextColor(80,80,80);
+                                    const legendItems = geoItems.slice(0, 30); // cap legend at 30
+                                    let lx = margin, ly = legY;
+                                    legendItems.forEach((p, i) => {
+                                        const lbl = p.type === 'sketch' ? 'S' : String(p.photoNumber || i+1);
+                                        if (lx + 55 > pageWidth - margin) { lx = margin; ly += 9; }
+                                        doc.setFillColor(ar,ag,ab); doc.circle(lx+3, ly-2, 3, 'F');
+                                        doc.setTextColor(255,255,255); doc.setFontSize(5.5); doc.setFont("helvetica","bold");
+                                        doc.text(lbl, lx+3, ly-1.5, {align:'center'});
+                                        doc.setTextColor(60,60,60); doc.setFontSize(7); doc.setFont("helvetica","normal");
+                                        doc.text((p.title||'Untitled').slice(0,18), lx+8, ly-1);
+                                        lx += 58;
+                                    });
+                                    if (geoItems.length > 30) {
+                                        doc.setTextColor(120,120,120); doc.setFontSize(7);
+                                        doc.text(`...and ${geoItems.length - 30} more`, margin, ly + 9);
+                                    }
+                                }
+                            } catch(e) {
+                                console.warn('Map render failed:', e);
+                            }
+                            toggleLoader(true, 'Finalising PDF…');
                         }
                     }
 
@@ -4299,6 +4469,24 @@
                         doc.setPage(n);
                         if (n === 1 && o.cover) continue; // cover has its own footer
                         addFooterText(n - coverOffset, totalPgs - coverOffset);
+                    }
+
+                    // ── Build PDF outline / bookmarks ──────────────────
+                    // Navigate to each tracked page and add the outline item so
+                    // jsPDF links it to the correct page in the document.
+                    const buildOutline = (parent, items) => {
+                        items.forEach(bm => {
+                            doc.setPage(Math.min(bm.page, totalPgs));
+                            const node = doc.outline.add(parent, bm.title);
+                            if (bm.children && bm.children.length > 0) {
+                                buildOutline(node, bm.children);
+                            }
+                        });
+                    };
+                    try {
+                        buildOutline(null, bmTree);
+                    } catch(e) {
+                        console.warn('Bookmarks not supported in this jsPDF build:', e.message);
                     }
 
                     const filename = state.project + '_Report_' + new Date().toISOString().slice(0,10) + '.pdf';
@@ -5373,6 +5561,215 @@
             }
 
 
+
+            // ── RENDER MAP TO CANVAS FOR PDF ────────────────────────────
+            // Uses the same CartoDB Voyager tiles as the in-app map.
+            // Tile math converts lat/lng → tile x/y → pixel coordinates.
+            async _renderMapForPDF(items, o) {
+                const TILE_SIZE = 256;
+                const CANVAS_W  = 1200;   // output canvas px width
+                const CANVAS_H  = 800;    // output canvas px height
+
+                // ── Tile math helpers ──
+                const latToY = (lat, zoom) => {
+                    const s = Math.sin(lat * Math.PI / 180);
+                    return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * Math.pow(2, zoom);
+                };
+                const lngToX = (lng, zoom) => (lng + 180) / 360 * Math.pow(2, zoom);
+
+                // ── Calculate tightest zoom that fits all markers with padding ──
+                const lats = items.map(i => i.lat);
+                const lngs = items.map(i => i.lng);
+                const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+                const minLng = Math.min(...lngs), maxLng = Math.max(...lngs);
+
+                // Usable canvas area — leave 12% padding on each side for markers
+                // that sit on the edge not to be clipped
+                const PAD = 0.76; // markers must fit within this fraction of canvas
+                const usableW = CANVAS_W * PAD;
+                const usableH = CANVAS_H * PAD;
+
+                // Iterate from high zoom DOWN and keep the first (highest) zoom
+                // where the extent of markers fits inside the usable area.
+                // Single-location case: all markers share the same point → extent = 0
+                // → every zoom level fits, so we cap at 17 (street level).
+                let zoom = 14; // safe default
+                for (let z = 18; z >= 1; z--) {
+                    const x1 = lngToX(minLng, z), x2 = lngToX(maxLng, z);
+                    const y1 = latToY(maxLat, z), y2 = latToY(minLat, z);
+                    const pxW = (x2 - x1) * TILE_SIZE;
+                    const pxH = (y2 - y1) * TILE_SIZE;
+                    // For a single location (pxW ≈ pxH ≈ 0) cap at zoom 17
+                    if (pxW < 1 && pxH < 1) { zoom = 17; break; }
+                    if (pxW <= usableW && pxH <= usableH) { zoom = z; break; }
+                }
+
+                // Centre of all markers
+                const cLat = (minLat + maxLat) / 2;
+                const cLng = (minLng + maxLng) / 2;
+                const cX = lngToX(cLng, zoom);   // fractional tile coords
+                const cY = latToY(cLat, zoom);
+
+                // Canvas centre in tile pixels
+                const canvasCX = CANVAS_W / 2;
+                const canvasCY = CANVAS_H / 2;
+
+                // Tile range to fetch
+                const tileX0 = Math.floor(cX - canvasCX / TILE_SIZE) - 1;
+                const tileY0 = Math.floor(cY - canvasCY / TILE_SIZE) - 1;
+                const tileX1 = Math.ceil(cX  + canvasCX / TILE_SIZE) + 1;
+                const tileY1 = Math.ceil(cY  + canvasCY / TILE_SIZE) + 1;
+
+                const canvas = document.createElement('canvas');
+                canvas.width = CANVAS_W; canvas.height = CANVAS_H;
+                const ctx = canvas.getContext('2d');
+
+                // White background in case tiles fail
+                ctx.fillStyle = '#f5f3ee';
+                ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+                // ── Fetch and draw tiles ──
+                const tilePromises = [];
+                const maxTile = Math.pow(2, zoom);
+                for (let tx = tileX0; tx <= tileX1; tx++) {
+                    for (let ty = tileY0; ty <= tileY1; ty++) {
+                        const wtx = ((tx % maxTile) + maxTile) % maxTile; // wrap
+                        if (ty < 0 || ty >= maxTile) continue;
+                        // CartoDB Voyager — same tiles as the in-app Leaflet map
+                        const subdomain = ['a','b','c','d'][(tx + ty) % 4];
+                        const url = `https://${subdomain}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${wtx}/${ty}.png`;
+                        // Pixel offset of this tile on canvas
+                        const px = Math.round((tx - cX) * TILE_SIZE + canvasCX);
+                        const py = Math.round((ty - cY) * TILE_SIZE + canvasCY);
+                        tilePromises.push(
+                            fetch(url)
+                                .then(r => r.blob())
+                                .then(blob => new Promise(resolve => {
+                                    const img = new Image();
+                                    img.onload  = () => { ctx.drawImage(img, px, py, TILE_SIZE, TILE_SIZE); resolve(); };
+                                    img.onerror = () => resolve();
+                                    img.src = URL.createObjectURL(blob);
+                                }))
+                                .catch(() => {}) // tile fetch fail = transparent hole, acceptable
+                        );
+                    }
+                }
+                await Promise.all(tilePromises);
+
+                // ── Convert lat/lng → canvas px ──
+                const toCanvas = (lat, lng) => ({
+                    x: Math.round((lngToX(lng, zoom) - cX) * TILE_SIZE + canvasCX),
+                    y: Math.round((latToY(lat, zoom)  - cY) * TILE_SIZE + canvasCY)
+                });
+
+                const accentHex = o.accentColor || '#2563eb';
+                const hexRGB = h => [parseInt(h.slice(1,3),16), parseInt(h.slice(3,5),16), parseInt(h.slice(5,7),16)];
+                const [ar,ag,ab] = hexRGB(accentHex);
+
+                // ── Build marker positions + cluster deconfliction ──────────
+                const BUBBLE_R = 14;   // marker circle radius px
+                const SPREAD_R = 48;   // how far to fan out overlapping bubbles
+
+                // Step 1 — compute raw pixel positions for every item
+                const pts = items.map((p, i) => {
+                    const pos = toCanvas(p.lat, p.lng);
+                    return { p, i, ax: pos.x, ay: pos.y,   // actual map position
+                             bx: pos.x, by: pos.y,           // bubble position (may be offset)
+                             leader: false };                  // whether to draw a leader line
+                });
+
+                // Step 2 — find clusters (markers whose actual positions overlap)
+                const clustered = new Array(pts.length).fill(false);
+                const clusters  = [];
+                for (let a = 0; a < pts.length; a++) {
+                    if (clustered[a]) continue;
+                    const grp = [a];
+                    for (let b = a + 1; b < pts.length; b++) {
+                        const dx = pts[a].ax - pts[b].ax;
+                        const dy = pts[a].ay - pts[b].ay;
+                        if (Math.sqrt(dx*dx + dy*dy) < BUBBLE_R * 2.2) {
+                            grp.push(b);
+                            clustered[b] = true;
+                        }
+                    }
+                    clustered[a] = true;
+                    clusters.push(grp);
+                }
+
+                // Step 3 — fan out overlapping groups radially around their centroid
+                clusters.forEach(grp => {
+                    if (grp.length < 2) return; // solo marker — no change needed
+                    const cx = grp.reduce((s, i) => s + pts[i].ax, 0) / grp.length;
+                    const cy = grp.reduce((s, i) => s + pts[i].ay, 0) / grp.length;
+                    // Fan out in a circle, start from the top (-π/2) so first
+                    // marker goes upward — visually reads most naturally
+                    const r = SPREAD_R + Math.max(0, grp.length - 4) * 10;
+                    grp.forEach((idx, k) => {
+                        const angle = (2 * Math.PI * k / grp.length) - Math.PI / 2;
+                        pts[idx].bx = cx + r * Math.cos(angle);
+                        pts[idx].by = cy + r * Math.sin(angle);
+                        pts[idx].leader = true;
+                    });
+                });
+
+                // ── Draw pass 1: leader lines ──────────────────────────────
+                // Draw under everything so bubbles sit on top of the lines
+                pts.forEach(pt => {
+                    if (!pt.leader) return;
+                    ctx.beginPath();
+                    ctx.moveTo(pt.ax, pt.ay);
+                    ctx.lineTo(pt.bx, pt.by);
+                    ctx.strokeStyle = 'rgba(60,60,60,0.55)';
+                    ctx.lineWidth   = 1.5;
+                    ctx.setLineDash([4, 3]);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                    // Small dot at the actual map location
+                    ctx.beginPath();
+                    ctx.arc(pt.ax, pt.ay, 4, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(40,40,40,0.65)';
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                });
+
+                // ── Draw pass 2: bubble shadows ────────────────────────────
+                pts.forEach(pt => {
+                    ctx.beginPath();
+                    ctx.arc(pt.bx + 1.5, pt.by + 1.5, BUBBLE_R, 0, Math.PI * 2);
+                    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+                    ctx.fill();
+                });
+
+                // ── Draw pass 3: bubble circles + labels ───────────────────
+                pts.forEach(pt => {
+                    const isNote   = pt.p.type === 'note';
+                    const isSketch = pt.p.type === 'sketch';
+                    ctx.beginPath();
+                    ctx.arc(pt.bx, pt.by, BUBBLE_R, 0, Math.PI * 2);
+                    ctx.fillStyle = isNote ? '#eab308' : isSketch ? '#9333ea' : `rgb(${ar},${ag},${ab})`;
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2.5;
+                    ctx.stroke();
+                    const lbl = isNote ? '✎' : isSketch ? 'S' : String(pt.p.photoNumber || pt.i + 1);
+                    ctx.font = `bold ${lbl.length > 2 ? 8 : 10}px Inter, Arial, sans-serif`;
+                    ctx.fillStyle   = '#ffffff';
+                    ctx.textAlign   = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(lbl, pt.bx, pt.by);
+                });
+
+                // ── Attribution ──
+                ctx.font = '11px Arial, sans-serif';
+                ctx.fillStyle = 'rgba(0,0,0,0.6)';
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText('© OpenStreetMap contributors  © CARTO', CANVAS_W - 6, CANVAS_H - 4);
+
+                return canvas;
+            }
 
             async genCSV() {
                 const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id));
