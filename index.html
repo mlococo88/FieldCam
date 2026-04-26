@@ -18,6 +18,8 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><path d='M24 12h-3l-2-3H13L11 12H8a1.5 1.5 0 0 0-1.5 1.5v10A1.5 1.5 0 0 0 8 25h16a1.5 1.5 0 0 0 1.5-1.5v-10A1.5 1.5 0 0 0 24 12z' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/><circle cx='16' cy='18' r='3.5' fill='none' stroke='white' stroke-width='1.5'/></svg>">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -37,6 +39,116 @@
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         canvas { touch-action: none; }
         .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* ── Design tokens ── */
+        :root {
+            --brand:      #2563eb;
+            --brand-dark: #1d4ed8;
+            --surface:    #ffffff;
+            --surface-2:  #f8fafc;
+            --surface-3:  #f1f5f9;
+            --border:     #e2e8f0;
+            --border-2:   #cbd5e1;
+            --text-1:     #0f172a;
+            --text-2:     #475569;
+            --text-3:     #94a3b8;
+            --radius-sm:  8px;
+            --radius-md:  12px;
+            --radius-lg:  16px;
+            --shadow-sm:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+            --shadow-md:  0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
+        }
+
+        /* ── Base ── */
+        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+               -webkit-font-smoothing: antialiased; background: var(--surface-3); }
+
+        /* ── Capture tile — solid card, no dashed border ── */
+        .capture-tile {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            transition: box-shadow .15s, transform .1s;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 1.25rem 1rem;
+            cursor: pointer; user-select: none;
+            min-height: 110px;
+        }
+        .capture-tile:hover  { box-shadow: var(--shadow-md); }
+        .capture-tile:active { transform: scale(.97); box-shadow: var(--shadow-sm); }
+
+        .capture-icon {
+            width: 44px; height: 44px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            margin-bottom: .625rem;
+            transition: transform .15s;
+        }
+        .capture-tile:hover .capture-icon { transform: scale(1.08); }
+
+        /* ── Sensor tile ── */
+        .sensor-tile {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            padding: .75rem 1rem;
+            cursor: pointer; transition: box-shadow .15s;
+            display: flex; flex-direction: column; align-items: center; text-align: center;
+        }
+        .sensor-tile:hover { box-shadow: var(--shadow-md); }
+
+        /* ── Nav ── */
+        .nav-item { position: relative; }
+        .nav-item.active::before {
+            content: '';
+            position: absolute; top: 0; left: 20%; right: 20%;
+            height: 2.5px; border-radius: 0 0 3px 3px;
+            background: var(--brand);
+        }
+
+        /* ── Feed card ── */
+        .feed-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-sm);
+            overflow: hidden;
+            transition: box-shadow .15s, border-color .15s;
+        }
+        .feed-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-2); }
+
+        /* ── Button system ── */
+        .btn-primary {
+            background: var(--brand); color: #fff; font-weight: 700;
+            border-radius: var(--radius-md); padding: .75rem 1.5rem;
+            font-size: .875rem; border: none; cursor: pointer;
+            transition: background .15s, transform .1s, box-shadow .15s;
+            box-shadow: 0 1px 3px rgba(37,99,235,.3);
+        }
+        .btn-primary:hover  { background: var(--brand-dark); box-shadow: 0 4px 12px rgba(37,99,235,.35); }
+        .btn-primary:active { transform: scale(.97); }
+
+        .btn-secondary {
+            background: var(--surface); color: var(--text-2); font-weight: 600;
+            border: 1px solid var(--border-2); border-radius: var(--radius-md);
+            padding: .75rem 1.5rem; font-size: .875rem; cursor: pointer;
+            transition: background .15s, border-color .15s;
+        }
+        .btn-secondary:hover { background: var(--surface-2); border-color: var(--brand); color: var(--brand); }
+
+        /* ── Section header ── */
+        .section-label {
+            font-size: .625rem; font-weight: 700; letter-spacing: .08em;
+            text-transform: uppercase; color: var(--text-3);
+        }
+
+        /* ── Scrollbar polish ── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
         /* ── Desktop two-column layout ── */
         @media (min-width: 768px) {
@@ -109,101 +221,116 @@
     <div id="upload-timeout-label">Uploading… <span id="upload-timeout-secs">8</span>s</div>
 
     <!-- HEADER -->
-    <header class="bg-white shadow-sm z-30 px-4 py-3 flex justify-between items-center border-b border-slate-200 flex-none">
-        <div class="flex flex-col">
-            <div>
-                <h1 class="text-lg font-bold text-slate-800 tracking-tight flex items-center gap-2 leading-none">
-                    <i data-lucide="camera" class="w-5 h-5 text-blue-600"></i> Field Cam
-                </h1>
-                <p class="text-[10px] text-slate-400 font-medium ml-7">by Mario LoCoco</p>
+    <header class="bg-white z-30 px-4 h-[56px] flex justify-between items-center flex-none" style="border-bottom:1px solid var(--border); box-shadow: 0 1px 0 var(--border);">
+        <!-- Brand -->
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-blue-600 rounded-[10px] flex items-center justify-center shadow-sm flex-none">
+                <i data-lucide="camera" class="w-4 h-4 text-white"></i>
             </div>
-            <div onclick="window.app.toggleSettings()" class="text-xs text-slate-500 font-medium cursor-pointer flex items-center gap-1 hover:text-blue-600 transition mt-1">
-                <span id="header-project-name">Select Project</span>
-                <i data-lucide="chevron-down" class="w-3 h-3"></i>
+            <div>
+                <div class="text-sm font-bold text-slate-900 leading-none tracking-tight">Field Cam</div>
+                <!-- Project switcher -->
+                <button onclick="window.app.toggleSettings()"
+                    class="flex items-center gap-0.5 text-[11px] text-blue-600 font-semibold hover:text-blue-800 transition leading-none mt-0.5">
+                    <span id="header-project-name">Select Project</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
             </div>
         </div>
-        <div class="flex items-center gap-3">
-            <div id="outbox-badge" class="hidden flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold animate-pulse cursor-pointer" onclick="window.app.openOutboxViewer()">
-                <i data-lucide="upload-cloud" class="w-3 h-3"></i> <span id="outbox-count">0</span>
+
+        <!-- Right cluster -->
+        <div class="flex items-center gap-2">
+            <!-- Outbox badge -->
+            <div id="outbox-badge" class="hidden items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded-full text-[10px] font-bold cursor-pointer hover:bg-orange-100 transition" onclick="window.app.openOutboxViewer()">
+                <i data-lucide="upload-cloud" class="w-3 h-3"></i>
+                <span id="outbox-count">0</span>
             </div>
-            <div id="status-indicator" class="w-3 h-3 rounded-full bg-slate-300 ring-2 ring-white shadow-sm transition-colors duration-300"></div>
-            <button onclick="window.app.toggleSettings()" class="p-2 text-slate-400 hover:text-blue-600 transition bg-slate-50 rounded-full">
-                <i data-lucide="settings" class="w-5 h-5"></i>
+            <!-- Connection dot -->
+            <div id="status-indicator" class="w-2 h-2 rounded-full bg-slate-300 transition-colors duration-300 flex-none"></div>
+            <!-- Settings -->
+            <button onclick="window.app.toggleSettings()"
+                class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
+                <i data-lucide="settings" class="w-4 h-4"></i>
             </button>
         </div>
     </header>
 
     <!-- MAIN CONTENT AREA -->
-    <main class="flex-1 relative overflow-hidden bg-slate-100">
+    <main class="flex-1 relative overflow-hidden" style="background:var(--surface-3);">
 
         <!-- TAB 1: INSPECT -->
-        <div id="tab-inspect" class="tab-content active p-4 space-y-4">
+        <div id="tab-inspect" class="tab-content active p-4 space-y-3">
 
             <!-- LEFT COLUMN: controls -->
             <div class="inspect-left space-y-4">
-                <div class="grid grid-cols-3 gap-3">
-                    <div onclick="window.app.requestGPS()" class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition active:scale-95">
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">GPS</div>
-                        <div id="gps-val" class="text-xs font-mono font-bold text-slate-600 truncate w-full">Waiting...</div>
-                    </div>
-                    <div onclick="window.app.requestCompass()" class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition active:scale-95">
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Heading</div>
-                        <div class="flex items-center gap-1 justify-center w-full">
-                            <svg id="compass-icon" class="w-4 h-4 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10" class="text-slate-200 stroke-slate-200" />
-                                <path d="M12 2L15 12H9L12 2Z" fill="#ef4444" stroke="none" />
-                                <path d="M12 22L9 12H15L12 22Z" fill="#94a3b8" stroke="none" />
+                <!-- Sensor status bar -->
+                <div class="bg-white rounded-xl border flex divide-x overflow-hidden" style="border-color:var(--border); box-shadow:var(--shadow-sm);">
+                    <button onclick="window.app.requestGPS()" class="flex-1 px-3 py-2.5 flex flex-col items-center hover:bg-slate-50 transition active:bg-slate-100">
+                        <span class="section-label mb-1">GPS</span>
+                        <span id="gps-val" class="text-[11px] font-mono font-semibold text-slate-700 truncate max-w-full">Waiting…</span>
+                    </button>
+                    <button onclick="window.app.requestCompass()" class="flex-1 px-3 py-2.5 flex flex-col items-center hover:bg-slate-50 transition active:bg-slate-100">
+                        <span class="section-label mb-1">Heading</span>
+                        <div class="flex items-center gap-1">
+                            <svg id="compass-icon" class="w-3.5 h-3.5 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10" stroke="#e2e8f0"/>
+                                <path d="M12 2L15 12H9Z" fill="#ef4444" stroke="none"/>
+                                <path d="M12 22L9 12H15Z" fill="#94a3b8" stroke="none"/>
                             </svg>
-                            <span id="compass-val" class="text-xs font-mono font-bold text-slate-600">Off</span>
+                            <span id="compass-val" class="text-[11px] font-mono font-semibold text-slate-700">Off</span>
                         </div>
-                    </div>
-                    <div onclick="window.app.retryWeather()" class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-slate-50 transition active:scale-95">
-                        <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Wx</div>
-                        <div id="wx-val" class="text-xs font-medium text-slate-600 truncate w-full">--</div>
-                    </div>
+                    </button>
+                    <button onclick="window.app.retryWeather()" class="flex-1 px-3 py-2.5 flex flex-col items-center hover:bg-slate-50 transition active:bg-slate-100">
+                        <span class="section-label mb-1">Weather</span>
+                        <span id="wx-val" class="text-[11px] font-semibold text-slate-700 truncate max-w-full">--</span>
+                    </button>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
-                    <div class="flex justify-between items-center mb-4">
-                        <h2 class="text-sm font-bold text-slate-700">Capture</h2>
-                        <div class="flex items-center gap-2">
-                            <span id="overlay-status" class="text-[10px] text-slate-400 hidden"></span>
-                            <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none">
-                                <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 text-blue-600 rounded focus:ring-blue-500 border-gray-300" onchange="window.app.updateOverlayStatus()">
-                                <span>Overlay Data</span>
-                            </label>
-                        </div>
+                <!-- Capture section -->
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <span class="section-label">Capture</span>
+                        <label class="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
+                            <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 accent-blue-600 rounded" onchange="window.app.updateOverlayStatus()">
+                            <span id="overlay-status">Overlay Data</span>
+                        </label>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
+                        <!-- Camera -->
                         <div class="flex flex-col gap-2">
-                            <button onclick="window.app.openCamera()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-blue-50 hover:bg-blue-100 rounded-xl p-4 border-2 border-dashed border-blue-200 transition active:scale-95 h-28 w-full">
-                                <div class="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform relative">
+                            <button onclick="window.app.openCamera()" class="capture-tile">
+                                <div class="capture-icon bg-blue-600 text-white shadow-sm">
                                     <i data-lucide="camera" class="w-5 h-5"></i>
                                 </div>
-                                <span class="text-xs font-bold text-blue-900">Live Photo</span>
+                                <span class="text-[13px] font-semibold text-slate-800">Camera</span>
+                                <span class="text-[10px] text-slate-400 mt-0.5">Live photo</span>
                             </button>
-                            <!-- Hidden fallback input for browsers without getUserMedia -->
                             <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-
                         </div>
-                        <label class="cursor-pointer group relative flex flex-col items-center justify-center bg-indigo-50 hover:bg-indigo-100 rounded-xl p-4 border-2 border-dashed border-indigo-200 transition active:scale-95 h-28">
-                            <div class="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                        <!-- Gallery -->
+                        <label class="capture-tile">
+                            <div class="capture-icon bg-indigo-600 text-white shadow-sm">
                                 <i data-lucide="image" class="w-5 h-5"></i>
                             </div>
-                            <span class="text-xs font-bold text-indigo-900">Gallery</span>
+                            <span class="text-[13px] font-semibold text-slate-800">Gallery</span>
+                            <span class="text-[10px] text-slate-400 mt-0.5">Import photos</span>
                             <input type="file" id="gallery-input" accept="image/*" multiple class="hidden">
                         </label>
-                        <button onclick="window.app.openSketch()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-purple-50 hover:bg-purple-100 rounded-xl p-4 border-2 border-dashed border-purple-200 transition active:scale-95 h-28">
-                            <div class="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                        <!-- Sketch -->
+                        <button onclick="window.app.openSketch()" class="capture-tile">
+                            <div class="capture-icon bg-violet-600 text-white shadow-sm">
                                 <i data-lucide="pen-tool" class="w-5 h-5"></i>
                             </div>
-                            <span class="text-xs font-bold text-purple-900">Sketch</span>
+                            <span class="text-[13px] font-semibold text-slate-800">Sketch</span>
+                            <span class="text-[10px] text-slate-400 mt-0.5">Draw & annotate</span>
                         </button>
-                        <button onclick="window.app.openNotes()" class="cursor-pointer group relative flex flex-col items-center justify-center bg-emerald-50 hover:bg-emerald-100 rounded-xl p-4 border-2 border-dashed border-emerald-200 transition active:scale-95 h-28">
-                            <div class="w-10 h-10 bg-emerald-600 rounded-full flex items-center justify-center shadow-lg text-white mb-2 group-hover:scale-110 transition-transform">
+                        <!-- Notes -->
+                        <button onclick="window.app.openNotes()" class="capture-tile">
+                            <div class="capture-icon bg-emerald-600 text-white shadow-sm">
                                 <i data-lucide="file-text" class="w-5 h-5"></i>
                             </div>
-                            <span class="text-xs font-bold text-emerald-900">Notes</span>
+                            <span class="text-[13px] font-semibold text-slate-800">Notes</span>
+                            <span class="text-[10px] text-slate-400 mt-0.5">Field observations</span>
                         </button>
                     </div>
                 </div>
@@ -384,28 +511,34 @@
     </main>
 
     <!-- BOTTOM NAVIGATION -->
-    <nav class="bg-white border-t border-slate-200 flex justify-around items-center h-[70px] pb-safe z-30 flex-none">
-        <button onclick="window.app.switchTab('inspect')" id="nav-inspect" class="nav-item active flex flex-col items-center justify-center w-full h-full text-blue-600 transition group">
-            <i data-lucide="camera" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
-            <span class="text-[10px] font-bold">Inspect</span>
+    <nav class="bg-white flex justify-around items-stretch pb-safe z-30 flex-none"
+         style="height:60px; border-top:1px solid var(--border); box-shadow:0 -1px 0 var(--border);">
+        <button onclick="window.app.switchTab('inspect')" id="nav-inspect"
+            class="nav-item active flex flex-col items-center justify-center flex-1 text-blue-600 gap-1 transition-colors">
+            <i data-lucide="camera" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Inspect</span>
         </button>
-        <button onclick="window.app.switchTab('report')" id="nav-report" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group relative">
-            <i data-lucide="clipboard-list" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
-            <span class="text-[10px] font-bold">Log</span>
-            <span id="nav-report-badge" class="hidden absolute top-2 right-4 bg-blue-600 text-white text-[8px] font-bold rounded-full px-1.5 py-0.5 leading-none"></span>
+        <button onclick="window.app.switchTab('report')" id="nav-report"
+            class="nav-item relative flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
+            <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Log</span>
+            <span id="nav-report-badge" class="hidden absolute top-1.5 right-4 bg-blue-600 text-white text-[8px] font-bold rounded-full px-1.5 py-0.5 leading-none"></span>
         </button>
-        <button onclick="window.app.switchTab('map')" id="nav-map" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group">
-            <i data-lucide="map" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
-            <span class="text-[10px] font-bold">Map</span>
+        <button onclick="window.app.switchTab('map')" id="nav-map"
+            class="nav-item flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
+            <i data-lucide="map" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Map</span>
         </button>
-        <button onclick="window.app.switchTab('files')" id="nav-files" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group">
-            <i data-lucide="hard-drive" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
-            <span class="text-[10px] font-bold">Files</span>
+        <button onclick="window.app.switchTab('files')" id="nav-files"
+            class="nav-item flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
+            <i data-lucide="hard-drive" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Files</span>
         </button>
-        <button onclick="window.app.switchTab('plans')" id="nav-plans" class="nav-item flex flex-col items-center justify-center w-full h-full text-slate-400 hover:text-blue-600 transition group relative">
-            <i data-lucide="file-text" class="w-6 h-6 mb-1 group-hover:scale-110 transition-transform"></i>
-            <span class="text-[10px] font-bold">Plans</span>
-            <span id="nav-plans-badge" class="hidden absolute top-2 right-2 bg-orange-500 text-white text-[8px] font-bold rounded-full px-1.5 py-0.5 leading-none"></span>
+        <button onclick="window.app.switchTab('plans')" id="nav-plans"
+            class="nav-item relative flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
+            <i data-lucide="file-text" class="w-5 h-5"></i>
+            <span class="text-[10px] font-semibold">Plans</span>
+            <span id="nav-plans-badge" class="hidden absolute top-1.5 right-2 bg-orange-500 text-white text-[8px] font-bold rounded-full px-1.5 py-0.5 leading-none"></span>
         </button>
     </nav>
 
@@ -553,30 +686,119 @@
 
     <!-- MODAL: NOTES -->
     <div id="modal-notes" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
-        <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
+        <div id="notes-inner" class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-200">
+
+            <!-- Header -->
+            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
                 <div class="flex items-center gap-2 text-slate-700 font-bold">
                     <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i>
                     <span id="note-modal-title">Field Observation</span>
                 </div>
-                <button onclick="window.app.closeNotes()" class="p-1 rounded hover:bg-slate-200 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+                <div class="flex items-center gap-1">
+                    <!-- Expand / collapse full-screen -->
+                    <button onclick="window.app.toggleNoteFullscreen()" id="btn-note-expand"
+                        class="p-1.5 rounded hover:bg-slate-200 text-slate-400 transition" title="Full screen">
+                        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                    </button>
+                    <button onclick="window.app.closeNotes()" class="p-1 rounded hover:bg-slate-200 text-slate-500"><i data-lucide="x" class="w-5 h-5"></i></button>
+                </div>
             </div>
-            <div class="p-5 flex-1 overflow-y-auto space-y-4">
+
+            <!-- Created / modified timestamps (edit mode only) -->
+            <div id="note-timestamps" class="hidden px-5 pt-3 pb-0 flex gap-4 text-[10px] text-slate-400 font-mono">
+                <span>Created: <span id="note-created-at" class="text-slate-500"></span></span>
+                <span id="note-modified-wrap" class="hidden">Modified: <span id="note-modified-at" class="text-slate-500"></span></span>
+            </div>
+
+            <!-- Body -->
+            <div class="p-5 flex-1 overflow-y-auto space-y-3 min-h-0">
+
+                <!-- Title -->
                 <div>
                     <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
-                    <input type="text" id="note-title" placeholder="e.g. North Abutment" class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none mt-1" onfocus="window.app && window.app._scrollInputIntoView(this)">
+                    <input type="text" id="note-title" placeholder="e.g. North Abutment"
+                        class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none mt-1"
+                        onfocus="window.app && window.app._scrollInputIntoView(this)"
+                        oninput="window.app.noteDraftSave()">
                 </div>
+
+                <!-- Formatting toolbar -->
+                <div class="flex items-center gap-1 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1.5">
+                    <button onclick="window.app.noteFormat('bold')"      class="note-fmt-btn w-7 h-7 rounded text-sm font-bold   text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Bold"><b>B</b></button>
+                    <button onclick="window.app.noteFormat('italic')"    class="note-fmt-btn w-7 h-7 rounded text-sm italic      text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Italic"><i>I</i></button>
+                    <button onclick="window.app.noteFormat('underline')" class="note-fmt-btn w-7 h-7 rounded text-sm underline  text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Underline"><u>U</u></button>
+                    <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                    <button onclick="window.app.noteFormat('bullet')"    class="note-fmt-btn w-7 h-7 rounded text-xs             text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Bullet list">• —</button>
+                    <button onclick="window.app.noteFormat('numbered')"  class="note-fmt-btn w-7 h-7 rounded text-xs             text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Numbered list">1.</button>
+                    <button onclick="window.app.noteFormat('h2')"        class="note-fmt-btn w-7 h-7 rounded text-xs font-bold  text-slate-600 hover:bg-slate-200 transition flex items-center justify-center" title="Heading">H</button>
+                    <div class="w-px h-4 bg-slate-300 mx-1"></div>
+                    <!-- Word count -->
+                    <span id="note-word-count" class="text-[10px] text-slate-400 ml-auto font-mono">0 words</span>
+                </div>
+
+                <!-- Rich text editor -->
+                <div id="note-editor"
+                    contenteditable="true"
+                    spellcheck="true"
+                    data-placeholder="Enter observation details..."
+                    class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none min-h-[140px] flex-1 overflow-y-auto"
+                    style="max-height:40vh;"
+                    oninput="window.app.onNoteEditorInput()"
+                    onfocus="window.app && window.app._scrollInputIntoView(this)"></div>
+
+                <!-- Link to photo -->
                 <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
-                    <textarea id="note-text" placeholder="Enter observation details..." class="w-full border border-slate-300 rounded-lg p-3 text-sm h-32 resize-none focus:ring-2 focus:ring-emerald-500 outline-none mt-1" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase">Linked Photo</label>
+                        <button onclick="window.app.clearNotePhotoLink()" id="btn-clear-photo-link"
+                            class="hidden text-[10px] text-red-500 font-bold hover:text-red-700">Remove</button>
+                    </div>
+                    <div id="note-photo-link-area" class="flex items-center gap-2">
+                        <div id="note-linked-thumb" class="hidden w-14 h-14 rounded-lg overflow-hidden border border-slate-200 flex-none">
+                            <img id="note-linked-img" class="w-full h-full object-cover">
+                        </div>
+                        <button onclick="window.app.openNotePhotoLink()" id="btn-link-photo"
+                            class="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">
+                            <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                            Link a Photo
+                        </button>
+                        <span id="note-linked-title" class="text-xs text-slate-500 truncate hidden"></span>
+                    </div>
+                </div>
+
+                <!-- Draft restored indicator -->
+                <div id="note-draft-banner" class="hidden flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 font-medium">
+                    <svg class="w-3.5 h-3.5 flex-none" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    Draft restored — unsaved changes from a previous session
+                    <button onclick="window.app.discardNoteDraft()" class="ml-auto text-amber-600 hover:text-amber-800 font-bold">Discard</button>
                 </div>
             </div>
+
+            <!-- Photo picker panel (slides in) -->
+            <div id="note-photo-picker" class="hidden flex-none border-t border-slate-200 bg-slate-50 p-3">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-[10px] font-bold text-slate-500 uppercase">Select a Photo</span>
+                    <button onclick="window.app.closeNotePhotoLink()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
+                </div>
+                <div id="note-photo-picker-list" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
+            </div>
+
+            <!-- Footer -->
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
                 <button onclick="window.app.closeNotes()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
                 <button id="btn-save-note" onclick="window.app.saveNote()" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow hover:bg-emerald-700">Save Note</button>
             </div>
         </div>
     </div>
+
+    <!-- CSS for note editor placeholder and fullscreen -->
+    <style>
+        #note-editor:empty:before { content: attr(data-placeholder); color: #94a3b8; pointer-events: none; }
+        #note-editor:focus:before { display: none; }
+        .notes-fullscreen #notes-inner { max-width: 100% !important; max-height: 100% !important; height: 100% !important; border-radius: 0 !important; }
+        .notes-fullscreen #note-editor { max-height: none !important; height: 100% !important; }
+        .notes-fullscreen { padding: 0 !important; align-items: stretch !important; }
+    </style>
 
     <!-- MODAL: CAPTION / EDIT -->
     <div id="modal-caption" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
@@ -634,23 +856,96 @@
 
     <!-- MODAL: SKETCH -->
     <div id="modal-sketch" class="fixed inset-0 z-[60] bg-white hidden flex flex-col fade-in">
-        <div class="flex-none p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
-            <button onclick="window.app.closeSketch()" class="text-slate-500 font-medium text-sm">Cancel</button>
-            <div class="flex items-center gap-3">
-                <input type="color" id="sketch-color" value="#ef4444" class="w-8 h-8 rounded-full overflow-hidden border-0 p-0 cursor-pointer">
-                <input type="range" id="sketch-size" min="2" max="15" value="4" class="w-24 accent-blue-600">
-                <div class="w-px h-6 bg-slate-300 mx-1"></div>
-                <button onclick="window.app.toggleEraser()" id="btn-eraser" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition" title="Eraser (or hold S Pen barrel button)"><i data-lucide="eraser" class="w-5 h-5"></i></button>
-                <button onclick="window.app.undoSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition"><i data-lucide="rotate-ccw" class="w-5 h-5"></i></button>
-                <button onclick="window.app.resetSketchZoom()" id="sketch-zoom-btn" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition text-[10px] font-bold leading-none min-w-[32px] text-center" title="Reset Zoom">1×</button>
+
+        <!-- Row 1: top bar -->
+        <div id="sketch-toolbar" class="flex-none border-b border-slate-200 bg-slate-50 transition-all duration-200">
+
+            <!-- Main toolbar row -->
+            <div class="flex items-center gap-1.5 px-3 py-2">
+                <button onclick="window.app.closeSketch()" class="text-slate-500 font-medium text-sm mr-1 flex-none">✕</button>
+
+                <!-- Tool selector -->
+                <div class="flex bg-slate-200 rounded-lg p-0.5 gap-0.5 flex-none">
+                    <button onclick="window.app.selectSketchTool('pen')"   id="sk-tool-pen"    class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center bg-white shadow" title="Pen">✏️</button>
+                    <button onclick="window.app.selectSketchTool('line')"  id="sk-tool-line"   class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Straight line (hold 2nd finger to snap)">📏</button>
+                    <button onclick="window.app.selectSketchTool('rect')"  id="sk-tool-rect"   class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Rectangle">▭</button>
+                    <button onclick="window.app.selectSketchTool('circle')" id="sk-tool-circle" class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Circle">◯</button>
+                    <button onclick="window.app.selectSketchTool('arrow')" id="sk-tool-arrow"  class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Arrow">➜</button>
+                    <button onclick="window.app.selectSketchTool('text')"  id="sk-tool-text"   class="sk-tool w-8 h-7 rounded text-xs font-bold flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Text label">T</button>
+                    <button onclick="window.app.selectSketchTool('fill')"  id="sk-tool-fill"   class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Fill bucket">🪣</button>
+                    <button onclick="window.app.selectSketchTool('eraser')" id="sk-tool-eraser" class="sk-tool w-8 h-7 rounded text-base flex items-center justify-center text-slate-400 hover:bg-slate-100" title="Eraser (or hold S Pen barrel button)">⌫</button>
+                </div>
+
+                <div class="w-px h-6 bg-slate-300 flex-none"></div>
+
+                <!-- Color picker + swatches -->
+                <input type="color" id="sketch-color" value="#1e293b"
+                    class="w-7 h-7 rounded-full overflow-hidden border-2 border-white shadow cursor-pointer flex-none"
+                    onchange="window.app.onSketchColorChange(this.value)">
+                <div id="sketch-swatches" class="flex gap-1 flex-none"></div>
+
+                <div class="w-px h-6 bg-slate-300 flex-none"></div>
+
+                <!-- Size slider -->
+                <input type="range" id="sketch-size" min="1" max="40" value="4"
+                    class="w-20 accent-blue-600 flex-none" title="Brush size">
+
+                <!-- Opacity slider -->
+                <input type="range" id="sketch-opacity" min="10" max="100" value="100"
+                    class="w-16 accent-purple-500 flex-none" title="Opacity">
+
+                <div class="w-px h-6 bg-slate-300 flex-none"></div>
+
+                <!-- Undo / Redo -->
+                <button onclick="window.app.undoSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition flex-none" title="Undo"><i data-lucide="rotate-ccw" class="w-4 h-4"></i></button>
+                <button onclick="window.app.redoSketch()" id="btn-redo" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 transition flex-none" title="Redo"><i data-lucide="rotate-cw" class="w-4 h-4"></i></button>
+
+                <div class="w-px h-6 bg-slate-300 flex-none"></div>
+
+                <!-- Zoom + rotate + page controls -->
+                <button onclick="window.app.resetSketchZoom()" id="sketch-zoom-btn" class="px-2 py-1 rounded-lg hover:bg-slate-200 text-slate-500 transition text-[10px] font-bold flex-none" title="Reset zoom">1×</button>
+                <button onclick="window.app.rotateSketch()" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-500 transition flex-none" title="Rotate 90°"><i data-lucide="refresh-cw" class="w-4 h-4"></i></button>
+                <button onclick="window.app.toggleLandscapeLock()" id="btn-landscape" class="p-1.5 rounded-lg hover:bg-slate-200 text-slate-400 transition flex-none" title="Lock landscape">⟲</button>
+
+                <!-- Right side: pages + done -->
+                <div class="flex-1"></div>
+                <div class="flex items-center gap-1 flex-none">
+                    <button onclick="window.app.sketchPrevPage()" class="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30" id="sk-prev-page" title="Previous page">‹</button>
+                    <span id="sk-page-label" class="text-[10px] font-bold text-slate-500 min-w-[40px] text-center">1 / 1</span>
+                    <button onclick="window.app.sketchNextPage()" class="p-1 text-slate-400 hover:text-slate-700" id="sk-next-page" title="Next page / Add page">›</button>
+                </div>
+                <button onclick="window.app.saveSketch()" class="ml-2 bg-blue-600 text-white font-bold text-sm px-4 py-1.5 rounded-lg flex-none">Done</button>
             </div>
-            <button onclick="window.app.saveSketch()" class="text-blue-600 font-bold text-sm">Done</button>
+
+            <!-- Background selector row -->
+            <div class="flex items-center gap-2 px-3 pb-2">
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Background:</span>
+                <div class="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
+                    <button onclick="window.app.setSketchBg('plain')" id="sketch-bg-plain"   class="px-2 py-0.5 rounded text-[10px] font-bold transition bg-white shadow text-slate-800">Plain</button>
+                    <button onclick="window.app.setSketchBg('lines')" id="sketch-bg-lines"   class="px-2 py-0.5 rounded text-[10px] font-bold transition text-slate-500">Lines</button>
+                    <button onclick="window.app.setSketchBg('grid')"  id="sketch-bg-grid"    class="px-2 py-0.5 rounded text-[10px] font-bold transition text-slate-500">Grid</button>
+                </div>
+                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-3">Opacity:</span>
+                <span id="sketch-opacity-label" class="text-[10px] font-bold text-slate-600 w-8">100%</span>
+                <button onclick="window.app.clearSketch()" class="ml-auto text-[10px] font-bold text-red-500 px-3 py-1 hover:bg-red-50 rounded-lg">Clear</button>
+            </div>
         </div>
-        <div class="flex-1 relative bg-white cursor-crosshair touch-none overflow-hidden" id="sketch-wrapper">
-            <canvas id="sketch-canvas" class="block"></canvas>
-        </div>
-        <div class="flex-none p-2 border-t border-slate-200 flex justify-center pb-safe">
-            <button onclick="window.app.clearSketch()" class="text-xs text-red-500 font-bold px-4 py-2 hover:bg-red-50 rounded-lg">Clear Canvas</button>
+
+        <!-- Canvas area -->
+        <div class="flex-1 relative touch-none overflow-hidden" id="sketch-wrapper">
+            <canvas id="sketch-canvas" class="block" style="cursor:crosshair;"></canvas>
+            <!-- Hover cursor dot -->
+            <div id="sketch-hover" class="hidden fixed pointer-events-none z-10 rounded-full border-2 border-blue-400 opacity-70" style="transform:translate(-50%,-50%);transition:width 0.1s,height 0.1s;"></div>
+            <!-- Text input overlay -->
+            <div id="sketch-text-overlay" class="hidden fixed z-20 pointer-events-auto">
+                <div class="flex items-center gap-1 bg-slate-900/90 border border-blue-400 rounded-lg px-2 py-1 shadow-xl">
+                    <input id="sketch-text-input" type="text" placeholder="Type label…"
+                        class="bg-transparent text-white text-sm outline-none w-40"
+                        onkeydown="if(event.key==='Enter'){event.preventDefault();window.app.commitSketchText();}if(event.key==='Escape')window.app.cancelSketchText();">
+                    <button onclick="window.app.commitSketchText()" class="text-green-400 font-bold text-sm px-1">✓</button>
+                    <button onclick="window.app.cancelSketchText()" class="text-slate-400 text-sm px-1">✕</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -2058,43 +2353,69 @@
 
                 if (toRenumber.length === 0) return showToast('No photos to renumber');
 
-                // Preview what will happen
-                const preview = toRenumber.slice(0, 3).map((p, i) =>
-                    `#${p.photoNumber || '?'} → #${i + 1}  ${p.title || 'Untitled'}`
-                ).join('\n') + (toRenumber.length > 3 ? `\n...and ${toRenumber.length - 3} more` : '');
+                // Only process items whose number will actually change
+                const needsChange = toRenumber.filter((item, i) => item.photoNumber !== i + 1);
+                if (needsChange.length === 0) return showToast('Photos already in order — no changes needed');
 
+                // Preview
+                const preview = needsChange.slice(0, 3).map(item => {
+                    const newNum = toRenumber.indexOf(item) + 1;
+                    return `#${item.photoNumber || '?'} → #${newNum}  ${item.title || 'Untitled'}`;
+                }).join('\n') + (needsChange.length > 3 ? `\n...and ${needsChange.length - 3} more` : '');
+
+                const reburn = needsChange.filter(i => i.rawStoragePath && i.storagePath).length;
                 if (!confirm(
-                    `Renumber ${toRenumber.length} photo${toRenumber.length !== 1 ? 's' : ''} in chronological order?\n\n` +
+                    `Renumber ${needsChange.length} photo${needsChange.length !== 1 ? 's' : ''} in chronological order?\n\n` +
                     `Preview:\n${preview}\n\n` +
-                    `This updates photo numbers in Firestore. It cannot be undone.`
+                    `${reburn > 0 ? `Will also re-burn the overlay text on ${reburn} photo${reburn !== 1 ? 's' : ''} to update the burned-in number.\n\n` : ''}` +
+                    `This cannot be undone.`
                 )) return;
 
                 this.closeSettings();
-                toggleLoader(true, 'Renumbering photos…');
+                let updated = 0, reburned = 0;
                 try {
-                    let updated = 0;
-                    // Process in batches of 5 to avoid hammering Firestore
                     for (let i = 0; i < toRenumber.length; i++) {
                         const item = toRenumber[i];
                         const newNum = i + 1;
-                        if (item.photoNumber !== newNum) {
-                            await setDoc(
-                                doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
-                                { photoNumber: newNum },
-                                { merge: true }
-                            );
-                            updated++;
+                        if (item.photoNumber === newNum) continue;
+
+                        toggleLoader(true, `Renumbering ${i + 1} of ${toRenumber.length}…`);
+
+                        // Build updated meta with new photo number
+                        const updatedMeta = { ...item, photoNumber: newNum };
+
+                        // ── Re-burn overlay if the photo has a raw original ──────
+                        // Fetch the raw, run burnOverlay with corrected number,
+                        // re-upload to the same display path (overwrites old overlay).
+                        if (item.rawStoragePath && item.storagePath) {
+                            try {
+                                toggleLoader(true, `Re-burning overlay ${i + 1} of ${toRenumber.length}…`);
+                                const rawUrl  = await getDownloadURL(ref(state.storage, item.rawStoragePath));
+                                const rawResp = await fetch(rawUrl);
+                                const rawBlob = await rawResp.blob();
+                                const newOverlayBlob = await this.burnOverlay(rawBlob, updatedMeta);
+                                await uploadBytes(ref(state.storage, item.storagePath), newOverlayBlob);
+                                // URL is the same path so no Firestore url update needed
+                                reburned++;
+                            } catch(e) {
+                                console.warn('Re-burn failed for', item.id, e.message);
+                                // Continue — number will still update in Firestore even if re-burn fails
+                            }
                         }
-                        // Update progress
-                        if ((i + 1) % 5 === 0 || i === toRenumber.length - 1) {
-                            toggleLoader(true, `Renumbering… ${i + 1} of ${toRenumber.length}`);
-                        }
+
+                        // ── Update Firestore ──────────────────────────────────────
+                        await setDoc(
+                            doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
+                            { photoNumber: newNum },
+                            { merge: true }
+                        );
+                        updated++;
                     }
-                    showToast(
-                        updated > 0
-                            ? `✓ Renumbered ${updated} photo${updated !== 1 ? 's' : ''}`
-                            : 'Photos already in order — no changes needed'
-                    );
+
+                    const msg = reburned > 0
+                        ? `✓ Renumbered ${updated} photo${updated !== 1 ? 's' : ''}, re-burned overlay on ${reburned}`
+                        : `✓ Renumbered ${updated} photo${updated !== 1 ? 's' : ''}`;
+                    showToast(msg, 4000);
                 } catch(e) {
                     alert('Renumber failed: ' + e.message);
                 } finally {
@@ -2214,6 +2535,10 @@
 
             bindEvents() {
                 $('camera-input').addEventListener('change', (e) => this.handleFileSelect(e.target.files[0], false));
+                // Sketch opacity slider label update
+                const opSlider = $('sketch-opacity');
+                if (opSlider) opSlider.addEventListener('input', () => window.app._updateOpacityLabel());
+
                 $('gallery-input').addEventListener('change', (e) => {
                     const files = Array.from(e.target.files);
                     if (files.length === 0) return;
@@ -3215,188 +3540,576 @@
                 });
             }
 
+            // ══════════════════════════════════════════════════════════════
+            // SKETCH MODULE v2 — full tool suite
+            // ══════════════════════════════════════════════════════════════
+
+            // ── Constants ──────────────────────────────────────────────────
+            _SKETCH_SWATCHES = ['#1e293b','#ef4444','#2563eb','#16a34a','#d97706','#9333ea','#ffffff','#64748b'];
+            undoLimit = 20;
+
+            // ── Init ───────────────────────────────────────────────────────
             openSketch() {
                 $('modal-sketch').classList.remove('hidden');
-                const canvas = $('sketch-canvas'), wrap = $('sketch-wrapper');
-                canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
-                ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                this.bgImage = null; this.wbCtx = ctx;
-                this.isDrawing = false; this.undoStack = [];
+                const wrap = $('sketch-wrapper');
+                this._sketchPages    = this._sketchPages || [null];
+                this._sketchPageIdx  = 0;
+                this._sketchTool     = this._sketchTool   || 'pen';
+                this._sketchBg       = this._sketchBg     || 'plain';
+                this._sketchRotation = 0;
+                this._sketchLandscape = false;
+                this.undoStack = []; this.redoStack = [];
 
-                // Reset zoom/pan state
-                this._sketchScale = 1;
-                this._sketchPanX = 0;
-                this._sketchPanY = 0;
+                this._initSketchPage(wrap);
+                this._buildSwatches();
+                this._updateSketchBgButtons();
+                this._updateSketchPageLabel();
+                this.selectSketchTool(this._sketchTool);
+                this._updateOpacityLabel();
+                lucide.createIcons();
+            }
+
+            _initSketchPage(wrap) {
+                const canvas = $('sketch-canvas');
+                canvas.width  = wrap.clientWidth;
+                canvas.height = wrap.clientHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                this.wbCtx = ctx; this.bgImage = null;
+                this.isDrawing = false;
+                this._sketchScale = 1; this._sketchPanX = 0; this._sketchPanY = 0;
                 this._applySketchTransform(canvas);
+                this._drawSketchBackground(ctx, canvas.width, canvas.height);
+                // Restore page content if exists
+                const saved = this._sketchPages[this._sketchPageIdx];
+                if (saved) {
+                    const img = new Image();
+                    img.onload = () => ctx.drawImage(img, 0, 0);
+                    img.src = saved;
+                }
                 this._bindSketchPointers(canvas, ctx);
             }
 
-            _applySketchTransform(canvas) {
-                // Apply zoom + pan as CSS transform — canvas pixel buffer stays full-res
-                canvas.style.transformOrigin = '0 0';
-                canvas.style.transform = `translate(${this._sketchPanX}px, ${this._sketchPanY}px) scale(${this._sketchScale})`;
-                // Update zoom indicator button
-                const btn = $('sketch-zoom-btn');
-                if (btn) btn.innerText = this._sketchScale === 1 ? '1×' : `${this._sketchScale.toFixed(1)}×`;
-            }
-
-            _toCanvasCoords(canvas, clientX, clientY) {
-                // getBoundingClientRect gives the TRANSFORMED (on-screen) bounds,
-                // so dividing by the ratio converts screen → canvas pixel coords correctly
-                const rect = canvas.getBoundingClientRect();
-                return {
-                    x: (clientX - rect.left) * (canvas.width / rect.width),
-                    y: (clientY - rect.top) * (canvas.height / rect.height)
-                };
-            }
-
-            _bindSketchPointers(canvas, ctx) {
-                // Track all active pointers by ID
-                const activePointers = new Map();
-                let lastPinchDist = null;
-                let lastPinchMid = null;
-                let barrelErasing = false; // true while S Pen barrel button is held
-
-                const getDistance = (p1, p2) =>
-                    Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
-
-                const getMidpoint = (p1, p2) => ({
-                    x: (p1.clientX + p2.clientX) / 2,
-                    y: (p1.clientY + p2.clientY) / 2
+            // ── Tool management ────────────────────────────────────────────
+            selectSketchTool(tool) {
+                this._sketchTool = tool;
+                document.querySelectorAll('.sk-tool').forEach(b => {
+                    b.classList.remove('bg-white','shadow','text-slate-700');
+                    b.classList.add('text-slate-400');
                 });
+                const btn = $('sk-tool-' + tool);
+                if (btn) { btn.classList.add('bg-white','shadow','text-slate-700'); btn.classList.remove('text-slate-400'); }
+                const canvas = $('sketch-canvas');
+                if (canvas) canvas.style.cursor = tool === 'text' ? 'text' : tool === 'fill' ? 'cell' : 'crosshair';
+                if (tool !== 'text') this.cancelSketchText();
+            }
 
-                // ── S Pen barrel button detection ───────────────────────────
-                // Samsung S Pen sets buttons bit 32 when the side button is held.
-                // Some firmware uses bit 2 instead — we check both.
-                const isBarrelButton = (e) =>
-                    e.pointerType === 'pen' && ((e.buttons & 32) !== 0 || e.buttons === 2);
+            // ── Color swatches ─────────────────────────────────────────────
+            _buildSwatches() {
+                const container = $('sketch-swatches');
+                if (!container) return;
+                container.innerHTML = '';
+                const recent = this._getRecentSketchColors();
+                const all = [...new Set([...recent, ...this._SKETCH_SWATCHES])].slice(0, 10);
+                all.forEach(color => {
+                    const btn = document.createElement('button');
+                    btn.className = 'w-5 h-5 rounded-full border-2 border-white shadow flex-none transition hover:scale-110 active:scale-95';
+                    btn.style.background = color;
+                    btn.title = color;
+                    btn.onclick = () => { $('sketch-color').value = color; };
+                    container.appendChild(btn);
+                });
+            }
 
-                const enterBarrelErase = () => {
-                    if (barrelErasing) return;
-                    barrelErasing = true;
-                    // Save current draw color and switch to eraser (white)
+            _getRecentSketchColors() {
+                try { return JSON.parse(localStorage.getItem('fp_sketch_colors') || '[]'); }
+                catch(e) { return []; }
+            }
+
+            onSketchColorChange(color) {
+                let recent = this._getRecentSketchColors().filter(c => c !== color);
+                recent.unshift(color);
+                recent = recent.slice(0, 5);
+                localStorage.setItem('fp_sketch_colors', JSON.stringify(recent));
+                this._buildSwatches();
+            }
+
+            // ── Opacity ────────────────────────────────────────────────────
+            _updateOpacityLabel() {
+                const el = $('sketch-opacity-label');
+                const slider = $('sketch-opacity');
+                if (el && slider) el.innerText = slider.value + '%';
+            }
+
+            // ── Pointer binding ────────────────────────────────────────────
+            _bindSketchPointers(canvas, ctx) {
+                if (this._sketchPointerAbort) this._sketchPointerAbort.abort();
+                this._sketchPointerAbort = new AbortController();
+                const sig = { signal: this._sketchPointerAbort.signal };
+
+                const activePointers = new Map();
+                let lastPinchDist = null, lastPinchMid = null;
+                let barrelErasing = false;
+                let shapeSnap = null;    // ImageData snapshot for shape preview
+                let shapeStart = null;   // canvas coords of shape start point
+                // Catmull-Rom smoothing: keep last 4 points
+                let smoothPts = [];
+
+                // ── Barrel button (S Pen) ──────────────────────────────────
+                const isBarrel = (e) =>
+                    e.pointerType === 'pen' && ((e.buttons & 32) !== 0 || e.buttons === 2 || e.button === 5);
+                const enterBarrel = () => {
+                    if (barrelErasing) return; barrelErasing = true;
                     this._barrelSavedColor = $('sketch-color').value;
-                    // Visually indicate eraser is active via the eraser button
-                    const btn = $('btn-eraser');
-                    if (btn) btn.classList.add('bg-red-100', 'text-red-600');
+                    $('btn-eraser')?.classList.add('bg-red-100','text-red-600');
+                };
+                const exitBarrel = () => {
+                    if (!barrelErasing) return; barrelErasing = false;
+                    if (this._barrelSavedColor) { $('sketch-color').value = this._barrelSavedColor; this._barrelSavedColor = null; }
+                    $('btn-eraser')?.classList.remove('bg-red-100','text-red-600');
+                    ctx.beginPath();
                 };
 
-                const exitBarrelErase = () => {
-                    if (!barrelErasing) return;
-                    barrelErasing = false;
-                    // Restore draw color
-                    if (this._barrelSavedColor) {
-                        $('sketch-color').value = this._barrelSavedColor;
-                        this._barrelSavedColor = null;
+                // ── Hover cursor ───────────────────────────────────────────
+                const showHover = (x, y) => {
+                    const el = $('sketch-hover'); if (!el) return;
+                    const sz = (parseFloat($('sketch-size').value) || 4) * this._sketchScale;
+                    el.style.width  = sz * 2 + 'px';
+                    el.style.height = sz * 2 + 'px';
+                    el.style.left   = x + 'px';
+                    el.style.top    = y + 'px';
+                    el.style.borderColor = $('sketch-color').value;
+                    el.classList.remove('hidden');
+                };
+                const hideHover = () => $('sketch-hover')?.classList.add('hidden');
+
+                // ── Canvas coordinate conversion ───────────────────────────
+                const toCanvas = (cx, cy) => {
+                    const rect = canvas.getBoundingClientRect();
+                    return { x: (cx - rect.left) * (canvas.width / rect.width),
+                             y: (cy - rect.top)  * (canvas.height / rect.height) };
+                };
+
+                const getDist = (p1, p2) => Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
+                const getMid  = (p1, p2) => ({ x: (p1.clientX+p2.clientX)/2, y: (p1.clientY+p2.clientY)/2 });
+
+                // ── Apply draw settings ────────────────────────────────────
+                const applyPenStyle = (isErase) => {
+                    const size    = parseFloat($('sketch-size').value) || 4;
+                    const opacity = (parseFloat($('sketch-opacity').value) || 100) / 100;
+                    const color   = $('sketch-color').value;
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    if (isErase) {
+                        ctx.globalCompositeOperation = 'destination-out';
+                        ctx.globalAlpha = 1;
+                        ctx.strokeStyle = 'rgba(0,0,0,1)';
+                        ctx.lineWidth = Math.max(20, size * 3) / this._sketchScale;
+                    } else {
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.globalAlpha = opacity;
+                        ctx.strokeStyle = color;
+                        ctx.lineWidth = Math.max(1.5, size / this._sketchScale);
                     }
-                    const btn = $('btn-eraser');
-                    if (btn) btn.classList.remove('bg-red-100', 'text-red-600');
-                    ctx.beginPath(); // clean break between erase and draw
                 };
 
-                canvas.onpointerdown = (e) => {
+                // ── Shape helpers ──────────────────────────────────────────
+                const drawShape = (tool, start, end) => {
+                    const size  = parseFloat($('sketch-size').value) || 4;
+                    const color = $('sketch-color').value;
+                    const opacity = (parseFloat($('sketch-opacity').value) || 100) / 100;
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.globalAlpha  = opacity;
+                    ctx.strokeStyle  = color;
+                    ctx.lineWidth    = Math.max(1.5, size / this._sketchScale);
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    const dx = end.x - start.x, dy = end.y - start.y;
+
+                    if (tool === 'rect') {
+                        ctx.strokeRect(start.x, start.y, dx, dy);
+                    } else if (tool === 'circle') {
+                        ctx.beginPath();
+                        ctx.ellipse(start.x + dx/2, start.y + dy/2, Math.abs(dx)/2, Math.abs(dy)/2, 0, 0, Math.PI*2);
+                        ctx.stroke();
+                    } else if (tool === 'arrow' || tool === 'line') {
+                        ctx.beginPath(); ctx.moveTo(start.x, start.y); ctx.lineTo(end.x, end.y); ctx.stroke();
+                        if (tool === 'arrow') {
+                            const angle = Math.atan2(dy, dx);
+                            const hLen  = Math.max(12, ctx.lineWidth * 4);
+                            ctx.beginPath();
+                            ctx.moveTo(end.x, end.y);
+                            ctx.lineTo(end.x - hLen * Math.cos(angle - Math.PI/6), end.y - hLen * Math.sin(angle - Math.PI/6));
+                            ctx.moveTo(end.x, end.y);
+                            ctx.lineTo(end.x - hLen * Math.cos(angle + Math.PI/6), end.y - hLen * Math.sin(angle + Math.PI/6));
+                            ctx.stroke();
+                        }
+                    }
+                };
+
+                // ── Catmull-Rom smooth stroke ──────────────────────────────
+                const smoothStroke = (pts) => {
+                    if (pts.length < 2) return;
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length - 1; i++) {
+                        const mid = { x: (pts[i].x + pts[i+1].x) / 2, y: (pts[i].y + pts[i+1].y) / 2 };
+                        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mid.x, mid.y);
+                    }
+                    ctx.lineTo(pts[pts.length-1].x, pts[pts.length-1].y);
+                    ctx.stroke();
+                };
+
+                // ══ POINTER DOWN ═══════════════════════════════════════════
+                canvas.addEventListener('pointerdown', (e) => {
                     canvas.setPointerCapture(e.pointerId);
                     activePointers.set(e.pointerId, e);
-
-                    // Check barrel button on pen down
-                    if (isBarrelButton(e)) enterBarrelErase();
-
-                    if (activePointers.size === 1) {
-                        // Single finger/pen — start drawing stroke
-                        this.undoStack.push(canvas.toDataURL());
-                        if (this.undoStack.length > this.undoLimit) this.undoStack.shift();
-                        this.isDrawing = true;
-                        const pos = this._toCanvasCoords(canvas, e.clientX, e.clientY);
-                        ctx.beginPath();
-                        ctx.moveTo(pos.x, pos.y);
-                    } else if (activePointers.size === 2) {
-                        // Second finger arrived — cancel drawing, start pinch/pan
-                        this.isDrawing = false;
-                        const ptrs = Array.from(activePointers.values());
-                        lastPinchDist = getDistance(ptrs[0], ptrs[1]);
-                        lastPinchMid = getMidpoint(ptrs[0], ptrs[1]);
-                    }
-                };
-
-                canvas.onpointermove = (e) => {
-                    activePointers.set(e.pointerId, e);
-
-                    // Re-check barrel button on every move (button can be pressed mid-stroke)
-                    if (e.pointerType === 'pen') {
-                        if (isBarrelButton(e)) enterBarrelErase();
-                        else exitBarrelErase();
-                    }
+                    hideHover();
+                    if (isBarrel(e)) enterBarrel();
 
                     if (activePointers.size === 2) {
-                        // ── PINCH TO ZOOM + TWO-FINGER PAN ──
+                        this.isDrawing = false; shapeSnap = null; shapeStart = null;
                         const ptrs = Array.from(activePointers.values());
-                        const dist = getDistance(ptrs[0], ptrs[1]);
-                        const mid = getMidpoint(ptrs[0], ptrs[1]);
+                        lastPinchDist = getDist(ptrs[0], ptrs[1]);
+                        lastPinchMid  = getMid(ptrs[0], ptrs[1]);
+                        return;
+                    }
 
-                        if (lastPinchDist !== null) {
-                            const scaleDelta = dist / lastPinchDist;
-                            const oldScale = this._sketchScale;
-                            const newScale = Math.min(5, Math.max(0.5, oldScale * scaleDelta));
+                    const tool = barrelErasing ? 'eraser' : this._sketchTool;
+                    const pos  = toCanvas(e.clientX, e.clientY);
 
-                            this._sketchPanX = mid.x - (mid.x - this._sketchPanX) * (newScale / oldScale);
-                            this._sketchPanY = mid.y - (mid.y - this._sketchPanY) * (newScale / oldScale);
+                    if (tool === 'text') {
+                        this._sketchTextPos = pos;
+                        const overlay = $('sketch-text-overlay');
+                        overlay.style.left = e.clientX + 'px';
+                        overlay.style.top  = (e.clientY - 44) + 'px';
+                        overlay.classList.remove('hidden');
+                        $('sketch-text-input').value = '';
+                        requestAnimationFrame(() => $('sketch-text-input').focus());
+                        return;
+                    }
+
+                    if (tool === 'fill') {
+                        this._pushUndo();
+                        this._floodFill(ctx, canvas, Math.round(pos.x), Math.round(pos.y), $('sketch-color').value,
+                            (parseFloat($('sketch-opacity').value) || 100) / 100);
+                        return;
+                    }
+
+                    this._pushUndo();
+                    this.isDrawing = true;
+                    smoothPts = [pos];
+
+                    if (['rect','circle','arrow','line'].includes(tool)) {
+                        shapeStart = pos;
+                        shapeSnap  = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                        ctx.globalAlpha = 1;
+                    } else {
+                        applyPenStyle(tool === 'eraser');
+                        ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+                    }
+                }, { passive: false, ...sig });
+
+                // ══ POINTER MOVE ════════════════════════════════════════════
+                canvas.addEventListener('pointermove', (e) => {
+                    activePointers.set(e.pointerId, e);
+                    if (e.pointerType === 'pen') { if (isBarrel(e)) enterBarrel(); else exitBarrel(); }
+
+                    // Hover cursor when pen not touching
+                    if (e.pointerType === 'pen' && e.pressure === 0) { showHover(e.clientX, e.clientY); return; }
+                    hideHover();
+
+                    // Pinch zoom
+                    if (activePointers.size === 2) {
+                        const ptrs = Array.from(activePointers.values());
+                        const dist = getDist(ptrs[0], ptrs[1]);
+                        const mid  = getMid(ptrs[0], ptrs[1]);
+                        if (lastPinchDist) {
+                            const f = dist / lastPinchDist, old = this._sketchScale;
+                            this._sketchScale = Math.min(5, Math.max(0.5, old * f));
+                            const wRect = canvas.parentElement.getBoundingClientRect();
+                            const ax = mid.x - wRect.left, ay = mid.y - wRect.top;
+                            this._sketchPanX = ax - (ax - this._sketchPanX) * (this._sketchScale / old);
+                            this._sketchPanY = ay - (ay - this._sketchPanY) * (this._sketchScale / old);
                             this._sketchPanX += mid.x - lastPinchMid.x;
                             this._sketchPanY += mid.y - lastPinchMid.y;
-
-                            this._sketchScale = newScale;
                             this._applySketchTransform(canvas);
                         }
-
-                        lastPinchDist = dist;
-                        lastPinchMid = mid;
-
-                    } else if (activePointers.size === 1 && this.isDrawing) {
-                        // ── DRAW (or ERASE if barrel button held) ──
-                        const pos = this._toCanvasCoords(canvas, e.clientX, e.clientY);
-                        ctx.lineTo(pos.x, pos.y);
-                        if (barrelErasing) {
-                            // Erase: use destination-out composite or large white stroke
-                            ctx.strokeStyle = '#ffffff';
-                            ctx.lineWidth = Math.max(20, $('sketch-size').value * 3) / this._sketchScale;
-                        } else {
-                            ctx.strokeStyle = $('sketch-color').value;
-                            ctx.lineWidth = $('sketch-size').value / this._sketchScale;
-                        }
-                        ctx.stroke();
+                        lastPinchDist = dist; lastPinchMid = mid;
+                        return;
                     }
-                };
 
-                const endPointer = (e) => {
+                    if (!this.isDrawing) return;
+
+                    const tool = barrelErasing ? 'eraser' : this._sketchTool;
+                    const pos  = toCanvas(e.clientX, e.clientY);
+                    // Pressure sensitivity for pen
+                    const pressure = (e.pointerType === 'pen' && e.pressure > 0) ? e.pressure : 0.8;
+
+                    if (['rect','circle','arrow','line'].includes(tool) && shapeSnap && shapeStart) {
+                        ctx.putImageData(shapeSnap, 0, 0);
+                        drawShape(tool, shapeStart, pos);
+
+                    } else if (tool === 'pen') {
+                        applyPenStyle(false);
+                        // Pressure-sensitive width
+                        const size = parseFloat($('sketch-size').value) || 4;
+                        ctx.lineWidth = Math.max(1.5, (size * (0.4 + pressure * 0.6)) / this._sketchScale);
+                        smoothPts.push(pos);
+                        if (smoothPts.length > 4) smoothPts.shift();
+                        smoothStroke(smoothPts);
+                        ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+
+                    } else if (tool === 'eraser') {
+                        applyPenStyle(true);
+                        ctx.lineTo(pos.x, pos.y); ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+                    }
+                }, { passive: false, ...sig });
+
+                // ══ POINTER UP ══════════════════════════════════════════════
+                canvas.addEventListener('pointerup', (e) => {
                     activePointers.delete(e.pointerId);
-                    this.isDrawing = false;
-                    lastPinchDist = null;
-                    lastPinchMid = null;
-                    // If pen lifted and barrel button was active, exit erase mode
-                    if (e.pointerType === 'pen') exitBarrelErase();
-                    if (activePointers.size === 0) {
-                        ctx.beginPath(); // reset path so next stroke is clean
-                    }
-                };
+                    if (e.pointerType === 'pen') exitBarrel();
+                    const tool = barrelErasing ? 'eraser' : this._sketchTool;
 
-                canvas.onpointerup = endPointer;
-                canvas.onpointercancel = endPointer;
+                    if (this.isDrawing && shapeSnap && shapeStart) {
+                        const pos = toCanvas(e.clientX, e.clientY);
+                        ctx.putImageData(shapeSnap, 0, 0);
+                        drawShape(tool, shapeStart, pos);
+                        shapeSnap = null; shapeStart = null;
+                    }
+
+                    ctx.globalAlpha = 1;
+                    ctx.globalCompositeOperation = 'source-over';
+                    this.isDrawing = false;
+                    lastPinchDist = null; lastPinchMid = null;
+                    smoothPts = [];
+                    if (activePointers.size === 0) ctx.beginPath();
+                }, { passive: true, ...sig });
+
+                canvas.addEventListener('pointercancel', (e) => {
+                    activePointers.delete(e.pointerId);
+                    if (e.pointerType === 'pen') exitBarrel();
+                    this.isDrawing = false; lastPinchDist = null; lastPinchMid = null;
+                    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+                }, { passive: true, ...sig });
             }
 
-            closeSketch() { $('modal-sketch').classList.add('hidden'); }
+            // ── Undo / Redo ────────────────────────────────────────────────
+            _pushUndo() {
+                const c = $('sketch-canvas');
+                this.undoStack.push(c.toDataURL());
+                if (this.undoStack.length > this.undoLimit) this.undoStack.shift();
+                this.redoStack = []; // new action clears redo
+                $('btn-redo')?.classList.toggle('text-slate-400', true);
+            }
 
-            resetSketchZoom() {
-                this._sketchScale = 1;
-                this._sketchPanX = 0;
-                this._sketchPanY = 0;
-                this._applySketchTransform($('sketch-canvas'));
-                showToast('Zoom reset');
+            undoSketch() {
+                if (!this.undoStack.length) return;
+                const c = $('sketch-canvas'), ctx = this.wbCtx;
+                this.redoStack.push(c.toDataURL());
+                const img = new Image();
+                img.onload = () => { ctx.clearRect(0,0,c.width,c.height); ctx.drawImage(img,0,0); };
+                img.src = this.undoStack.pop();
+                $('btn-redo')?.classList.remove('text-slate-400');
+            }
+
+            redoSketch() {
+                if (!this.redoStack.length) return;
+                const c = $('sketch-canvas'), ctx = this.wbCtx;
+                this.undoStack.push(c.toDataURL());
+                const img = new Image();
+                img.onload = () => { ctx.clearRect(0,0,c.width,c.height); ctx.drawImage(img,0,0); };
+                img.src = this.redoStack.pop();
+                if (!this.redoStack.length) $('btn-redo')?.classList.add('text-slate-400');
+            }
+
+            // ── Text tool ──────────────────────────────────────────────────
+            commitSketchText() {
+                const text = $('sketch-text-input').value.trim();
+                $('sketch-text-overlay').classList.add('hidden');
+                if (!text || !this._sketchTextPos) return;
+                const ctx = this.wbCtx;
+                const canvas = $('sketch-canvas');
+                this._pushUndo();
+                const size    = Math.max(14, (parseFloat($('sketch-size').value) || 4) * 3) / this._sketchScale;
+                const opacity = (parseFloat($('sketch-opacity').value) || 100) / 100;
+                const color   = $('sketch-color').value;
+                ctx.save();
+                ctx.font = `bold ${size}px Inter, Arial, sans-serif`;
+                ctx.globalAlpha = opacity;
+                ctx.fillStyle = color;
+                // Readable background
+                const tw = ctx.measureText(text).width;
+                ctx.globalAlpha = 0.7;
+                ctx.fillStyle = 'rgba(255,255,255,0.85)';
+                ctx.fillRect(this._sketchTextPos.x - 2, this._sketchTextPos.y - size - 2, tw + 6, size + 6);
+                ctx.globalAlpha = opacity;
+                ctx.fillStyle = color;
+                ctx.fillText(text, this._sketchTextPos.x, this._sketchTextPos.y);
+                ctx.restore();
+                this._sketchTextPos = null;
+            }
+
+            cancelSketchText() {
+                $('sketch-text-overlay')?.classList.add('hidden');
+                this._sketchTextPos = null;
+            }
+
+            // ── Fill bucket (flood fill) ───────────────────────────────────
+            _floodFill(ctx, canvas, startX, startY, fillColorHex, opacity) {
+                const w = canvas.width, h = canvas.height;
+                const imgData = ctx.getImageData(0, 0, w, h);
+                const data = imgData.data;
+
+                const hexToRGBA = (hex) => {
+                    const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+                    return [r, g, b, Math.round(opacity * 255)];
+                };
+                const [fr, fg, fb, fa] = hexToRGBA(fillColorHex);
+
+                const idx  = (x, y) => (y * w + x) * 4;
+                const sIdx = idx(startX, startY);
+                const [sr, sg, sb, sa] = [data[sIdx], data[sIdx+1], data[sIdx+2], data[sIdx+3]];
+
+                // Don't fill if already same color
+                if (sr === fr && sg === fg && sb === fb) return;
+
+                const colorMatch = (i) =>
+                    Math.abs(data[i] - sr) < 32 && Math.abs(data[i+1] - sg) < 32 &&
+                    Math.abs(data[i+2] - sb) < 32 && Math.abs(data[i+3] - sa) < 32;
+
+                const stack = [[startX, startY]];
+                const visited = new Uint8Array(w * h);
+
+                while (stack.length) {
+                    const [x, y] = stack.pop();
+                    if (x < 0 || x >= w || y < 0 || y >= h) continue;
+                    const i = idx(x, y);
+                    if (visited[y * w + x] || !colorMatch(i)) continue;
+                    visited[y * w + x] = 1;
+                    data[i] = fr; data[i+1] = fg; data[i+2] = fb; data[i+3] = fa;
+                    stack.push([x+1,y],[x-1,y],[x,y+1],[x,y-1]);
+                }
+                ctx.putImageData(imgData, 0, 0);
+            }
+
+            // ── Multiple pages ─────────────────────────────────────────────
+            _updateSketchPageLabel() {
+                const total = this._sketchPages.length;
+                const cur   = this._sketchPageIdx + 1;
+                const el = $('sk-page-label');
+                if (el) el.innerText = `${cur} / ${total}`;
+                const prev = $('sk-prev-page');
+                if (prev) prev.disabled = cur === 1;
+            }
+
+            _saveCurrentPage() {
+                const c = $('sketch-canvas');
+                this._sketchPages[this._sketchPageIdx] = c.toDataURL();
+            }
+
+            sketchPrevPage() {
+                if (this._sketchPageIdx <= 0) return;
+                this._saveCurrentPage();
+                this._sketchPageIdx--;
+                this.undoStack = []; this.redoStack = [];
+                this._initSketchPage($('sketch-wrapper'));
+                this._updateSketchPageLabel();
+            }
+
+            sketchNextPage() {
+                this._saveCurrentPage();
+                this._sketchPageIdx++;
+                if (this._sketchPageIdx >= this._sketchPages.length) {
+                    this._sketchPages.push(null); // new blank page
+                    showToast(`Page ${this._sketchPages.length} added`);
+                }
+                this.undoStack = []; this.redoStack = [];
+                this._initSketchPage($('sketch-wrapper'));
+                this._updateSketchPageLabel();
+            }
+
+            // ── Rotate canvas ──────────────────────────────────────────────
+            rotateSketch() {
+                const canvas = $('sketch-canvas');
+                const ctx    = this.wbCtx;
+                const w = canvas.width, h = canvas.height;
+                // Snapshot current content
+                const snap = ctx.getImageData(0, 0, w, h);
+                // Swap dimensions
+                canvas.width  = h;
+                canvas.height = w;
+                const ctx2 = canvas.getContext('2d');
+                this.wbCtx = ctx2;
+                ctx2.lineCap = 'round'; ctx2.lineJoin = 'round';
+                // Rotate 90° clockwise: translate to new width, rotate, draw
+                ctx2.translate(h, 0);
+                ctx2.rotate(Math.PI / 2);
+                // Draw old content onto rotated canvas
+                const tmp = document.createElement('canvas');
+                tmp.width = w; tmp.height = h;
+                tmp.getContext('2d').putImageData(snap, 0, 0);
+                ctx2.drawImage(tmp, 0, 0);
+                ctx2.setTransform(1,0,0,1,0,0);
+                // Redraw background as lowest layer is preserved in the snapshot
+                this._sketchScale = 1; this._sketchPanX = 0; this._sketchPanY = 0;
+                this._applySketchTransform(canvas);
+                showToast('Rotated 90°');
+            }
+
+            // ── Landscape lock ─────────────────────────────────────────────
+            toggleLandscapeLock() {
+                this._sketchLandscape = !this._sketchLandscape;
+                const btn = $('btn-landscape');
+                if (this._sketchLandscape) {
+                    btn?.classList.add('text-blue-600','bg-blue-50');
+                    screen.orientation?.lock?.('landscape').catch(() => {});
+                    showToast('Landscape locked');
+                } else {
+                    btn?.classList.remove('text-blue-600','bg-blue-50');
+                    screen.orientation?.unlock?.();
+                    showToast('Orientation unlocked');
+                }
+            }
+
+            // ── Save / Clear / Close ───────────────────────────────────────
+            saveSketch() {
+                this._saveCurrentPage();
+                const pages = this._sketchPages.filter(Boolean);
+                if (pages.length === 0) { this.closeSketch(); return; }
+                // Save all pages as separate sketch entries
+                let saved = 0;
+                const saveNext = () => {
+                    if (saved >= pages.length) { this.closeSketch(); return; }
+                    const img = new Image();
+                    img.onload = () => {
+                        const c = document.createElement('canvas');
+                        c.width = img.width; c.height = img.height;
+                        c.getContext('2d').drawImage(img, 0, 0);
+                        c.toBlob(blob => {
+                            if (blob) this.handleFileSelect(blob, false, 'sketch');
+                            saved++;
+                            saveNext();
+                        }, 'image/jpeg', 0.95);
+                    };
+                    img.src = pages[saved];
+                };
+                saveNext();
+                this._sketchPages = [null]; this._sketchPageIdx = 0;
+            }
+
+            closeSketch() {
+                if (this._sketchPointerAbort) { this._sketchPointerAbort.abort(); this._sketchPointerAbort = null; }
+                this.cancelSketchText();
+                screen.orientation?.unlock?.();
+                this._sketchLandscape = false;
+                $('modal-sketch').classList.add('hidden');
             }
 
             clearSketch() {
                 const c = $('sketch-canvas'), ctx = this.wbCtx;
-                ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+                this._pushUndo();
+                this._drawSketchBackground(ctx, c.width, c.height);
                 if (this.bgImage) {
                     const img = this.bgImage;
                     const scale = Math.min(c.width / img.width, c.height / img.height);
@@ -3404,26 +4117,14 @@
                 }
             }
 
-            undoSketch() {
-                if (this.undoStack.length === 0) return;
-                const img = new Image();
-                img.onload = () => { const c = $('sketch-canvas'); this.wbCtx.clearRect(0,0,c.width,c.height); this.wbCtx.drawImage(img,0,0); };
-                img.src = this.undoStack.pop();
+            resetSketchZoom() {
+                this._sketchScale = 1; this._sketchPanX = 0; this._sketchPanY = 0;
+                this._applySketchTransform($('sketch-canvas'));
+                showToast('Zoom reset');
             }
 
-            toggleEraser() {
-                this.isEraser = !this.isEraser;
-                const btn = $('btn-eraser');
-                if (this.isEraser) { this.lastColor = $('sketch-color').value; $('sketch-color').value = '#ffffff'; btn.classList.add('bg-slate-200', 'text-blue-600'); }
-                else { $('sketch-color').value = this.lastColor; btn.classList.remove('bg-slate-200', 'text-blue-600'); }
-            }
+            toggleEraser() { this.selectSketchTool(this._sketchTool === 'eraser' ? 'pen' : 'eraser'); }
 
-            saveSketch() {
-                $('sketch-canvas').toBlob((blob) => {
-                    if (blob) { this.closeSketch(); this.handleFileSelect(blob, false, 'sketch'); }
-                    else showToast("Error saving sketch");
-                }, 'image/jpeg');
-            }
 
             annotateImage() {
                 const current = state.currentItem;
@@ -3459,60 +4160,309 @@
                 }, 100);
             }
 
+            // ══════════════════════════════════════════════════════════════
+            // NOTES MODULE v2
+            // ══════════════════════════════════════════════════════════════
+
+            // ── Draft auto-save key ────────────────────────────────────────
+            _noteDraftKey() { return 'fp_note_draft_' + (state.editingNoteId || 'new'); }
+
+            noteDraftSave() {
+                const draft = {
+                    title: $('note-title').value,
+                    text:  this._getNoteEditorText(),
+                    html:  $('note-editor').innerHTML,
+                    linkedPhotoId: this._noteLinkedPhotoId || null,
+                    ts: Date.now()
+                };
+                localStorage.setItem(this._noteDraftKey(), JSON.stringify(draft));
+                this._updateNoteWordCount();
+            }
+
+            discardNoteDraft() {
+                localStorage.removeItem(this._noteDraftKey());
+                $('note-draft-banner').classList.add('hidden');
+                showToast('Draft discarded');
+            }
+
+            // ── Get plain text from contenteditable ───────────────────────
+            _getNoteEditorText() {
+                const el = $('note-editor');
+                if (!el) return '';
+                // Convert HTML to readable plain text for storage
+                return el.innerText || el.textContent || '';
+            }
+
+            _getNoteEditorHTML() {
+                return $('note-editor')?.innerHTML || '';
+            }
+
+            // ── Open ───────────────────────────────────────────────────────
             openNotes(item = null) {
                 $('modal-notes').classList.remove('hidden');
+                this._noteLinkedPhotoId   = null;
+                this._noteFullscreen      = false;
+                $('note-photo-picker').classList.add('hidden');
+                $('note-linked-thumb').classList.add('hidden');
+                $('note-linked-title').classList.add('hidden');
+                $('btn-clear-photo-link').classList.add('hidden');
+
                 if (item) {
+                    // ── Edit mode ──────────────────────────────────────────
                     state.editingNoteId = item.id;
-                    $('note-title').value = item.title || '';
-                    $('note-text').value = item.text || item.detailedDesc || '';
-                    $('note-modal-title').innerText = "Edit Note";
-                    $('btn-save-note').innerText = "Update Note";
+                    $('note-title').value  = item.title || '';
+                    // Populate editor: prefer saved HTML, fall back to plain text
+                    const editor = $('note-editor');
+                    if (item.html) {
+                        editor.innerHTML = item.html;
+                    } else {
+                        editor.innerText = item.text || item.detailedDesc || '';
+                    }
+                    $('note-modal-title').innerText  = 'Edit Note';
+                    $('btn-save-note').innerText     = 'Update Note';
+
+                    // Show timestamps
+                    const tsEl = $('note-timestamps');
+                    tsEl.classList.remove('hidden');
+                    $('note-created-at').innerText  = item.dateString || '';
+                    const modWrap = $('note-modified-wrap');
+                    if (item.modifiedAt) {
+                        $('note-modified-at').innerText = formatDate(item.modifiedAt);
+                        modWrap.classList.remove('hidden');
+                    } else {
+                        modWrap.classList.add('hidden');
+                    }
+
+                    // Restore linked photo if any
+                    if (item.linkedPhotoId) {
+                        this._noteLinkedPhotoId = item.linkedPhotoId;
+                        this._renderLinkedPhoto(item.linkedPhotoId);
+                    }
+
+                    // No draft restore in edit mode — just use the saved content
+                    $('note-draft-banner').classList.add('hidden');
+
                 } else {
+                    // ── New note ───────────────────────────────────────────
                     state.editingNoteId = null;
-                    $('note-title').value = ''; $('note-text').value = '';
-                    $('note-modal-title').innerText = "Field Observation";
-                    $('btn-save-note').innerText = "Save Note";
+                    $('note-title').value  = '';
+                    $('note-editor').innerHTML = '';
+                    $('note-modal-title').innerText = 'Field Observation';
+                    $('btn-save-note').innerText    = 'Save Note';
+                    $('note-timestamps').classList.add('hidden');
+                    $('note-draft-banner').classList.add('hidden');
+
+                    // Check for a saved draft
+                    try {
+                        const raw = localStorage.getItem(this._noteDraftKey());
+                        if (raw) {
+                            const draft = JSON.parse(raw);
+                            const ageMin = (Date.now() - draft.ts) / 60000;
+                            if (ageMin < 1440) { // only restore drafts under 24h old
+                                $('note-title').value = draft.title || '';
+                                $('note-editor').innerHTML = draft.html || draft.text || '';
+                                if (draft.linkedPhotoId) {
+                                    this._noteLinkedPhotoId = draft.linkedPhotoId;
+                                    this._renderLinkedPhoto(draft.linkedPhotoId);
+                                }
+                                $('note-draft-banner').classList.remove('hidden');
+                            } else {
+                                localStorage.removeItem(this._noteDraftKey());
+                            }
+                        }
+                    } catch(e) {}
                 }
+
+                this._updateNoteWordCount();
+                lucide.createIcons();
+                // Focus title if empty, else body
+                setTimeout(() => {
+                    if (!$('note-title').value) $('note-title').focus();
+                    else $('note-editor').focus();
+                }, 120);
             }
 
+            // ── Close ──────────────────────────────────────────────────────
             closeNotes(saved = false) {
-                // Only warn about unsaved content when the user explicitly cancels (not after a successful save)
                 if (!saved) {
                     const title = $('note-title').value.trim();
-                    const text = $('note-text').value.trim();
-                    if ((title || text) && !confirm("Discard unsaved note?")) return;
+                    const text  = this._getNoteEditorText().trim();
+                    if ((title || text) && !confirm('Discard unsaved note?')) return;
+                    // Clear draft on cancel with content
+                    localStorage.removeItem(this._noteDraftKey());
                 }
                 $('modal-notes').classList.add('hidden');
-                $('note-title').value = ''; $('note-text').value = '';
+                if (this._noteFullscreen) this.toggleNoteFullscreen();
+                $('note-title').value = '';
+                $('note-editor').innerHTML = '';
+                this._noteLinkedPhotoId = null;
             }
 
+            // ── Save ───────────────────────────────────────────────────────
             async saveNote() {
-                const title = $('note-title').value.trim(), text = $('note-text').value.trim();
-                if(!text && !title) return showToast("Empty Note");
+                const title = $('note-title').value.trim();
+                const text  = this._getNoteEditorText().trim();
+                const html  = this._getNoteEditorHTML();
+                if (!text && !title) return showToast('Empty Note');
+
                 let id = state.editingNoteId, isNew = !id;
                 if (!id) id = Date.now().toString();
                 let meta;
+
                 if (isNew) {
-                    meta = { id, projectId: state.project, type: 'note', title, detailedDesc: text, text, timestamp: Date.now(), dateString: formatDate(Date.now()), lat: state.location?.lat || null, lng: state.location?.lng || null };
+                    meta = {
+                        id, projectId: state.project, type: 'note',
+                        title, detailedDesc: text, text, html,
+                        timestamp: Date.now(), dateString: formatDate(Date.now()),
+                        lat: state.location?.lat || null, lng: state.location?.lng || null,
+                        linkedPhotoId: this._noteLinkedPhotoId || null
+                    };
                 } else {
-                    // Guard: item might not be in state.items if data hasn't loaded yet
                     const existing = state.items.find(i => i.id === id) || {};
-                    meta = { ...existing, id, projectId: state.project, type: 'note', title, detailedDesc: text, text };
-                    if (!meta.timestamp) meta.timestamp = Date.now();
+                    meta = {
+                        ...existing, id, projectId: state.project, type: 'note',
+                        title, detailedDesc: text, text, html,
+                        modifiedAt: Date.now(),
+                        linkedPhotoId: this._noteLinkedPhotoId || null
+                    };
+                    if (!meta.timestamp)  meta.timestamp  = Date.now();
                     if (!meta.dateString) meta.dateString = formatDate(meta.timestamp);
                 }
-                if(!state.online) {
-                    await this.offlineMgr.addToOutbox({ id, meta, type:'note' });
-                    this.closeNotes(true); // true = saved, skip discard warning
-                    showToast(isNew ? "Note Saved (Offline)" : "Note Updated (Offline)");
-                    this.switchTab('report'); // consistent with online flow
+
+                // Clear draft on successful save
+                localStorage.removeItem(this._noteDraftKey());
+
+                if (!state.online) {
+                    await this.offlineMgr.addToOutbox({ id, meta, type: 'note' });
+                    this.closeNotes(true);
+                    showToast(isNew ? 'Note Saved (Offline)' : 'Note Updated (Offline)');
+                    this.switchTab('report');
                     return;
                 }
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta);
-                this.closeNotes(true); // true = saved, skip discard warning
-                showToast(isNew ? "Note Saved" : "Note Updated");
+                this.closeNotes(true);
+                showToast(isNew ? 'Note Saved' : 'Note Updated');
                 this.switchTab('report');
             }
+
+            // ── Rich text formatting ───────────────────────────────────────
+            noteFormat(cmd) {
+                const editor = $('note-editor');
+                editor.focus();
+                const sel = window.getSelection();
+                if (!sel || sel.rangeCount === 0) return;
+
+                if (cmd === 'bold')      { document.execCommand('bold',      false, null); return; }
+                if (cmd === 'italic')    { document.execCommand('italic',    false, null); return; }
+                if (cmd === 'underline') { document.execCommand('underline', false, null); return; }
+
+                if (cmd === 'bullet') {
+                    // Prefix the current line with • if not already there
+                    const range = sel.getRangeAt(0);
+                    const node  = range.startContainer;
+                    const line  = node.nodeType === 3 ? node : node.firstChild;
+                    if (line && !line.textContent.trimStart().startsWith('•')) {
+                        document.execCommand('insertText', false, '• ');
+                    }
+                    return;
+                }
+                if (cmd === 'numbered') {
+                    const range = sel.getRangeAt(0);
+                    const node  = range.startContainer;
+                    const existingNums = editor.innerHTML.match(/^\d+\./gm) || [];
+                    const nextNum = existingNums.length + 1;
+                    document.execCommand('insertText', false, `${nextNum}. `);
+                    return;
+                }
+                if (cmd === 'h2') {
+                    // Wrap selected text in a bold larger style
+                    document.execCommand('formatBlock', false, 'h3');
+                }
+                this._updateNoteWordCount();
+            }
+
+            onNoteEditorInput() {
+                this._updateNoteWordCount();
+                this.noteDraftSave();
+            }
+
+            _updateNoteWordCount() {
+                const el = $('note-editor');
+                const wc = $('note-word-count');
+                if (!el || !wc) return;
+                const words = (el.innerText || '').trim().split(/\s+/).filter(Boolean).length;
+                wc.innerText = words + (words === 1 ? ' word' : ' words');
+            }
+
+            // ── Full-screen toggle ─────────────────────────────────────────
+            toggleNoteFullscreen() {
+                this._noteFullscreen = !this._noteFullscreen;
+                $('modal-notes').classList.toggle('notes-fullscreen', this._noteFullscreen);
+                const icon = $('btn-note-expand');
+                if (icon) {
+                    icon.title = this._noteFullscreen ? 'Exit full screen' : 'Full screen';
+                    icon.classList.toggle('text-blue-600', this._noteFullscreen);
+                }
+                // Give editor more height in full screen
+                const editor = $('note-editor');
+                if (editor) editor.style.maxHeight = this._noteFullscreen ? '100%' : '40vh';
+            }
+
+            // ── Photo linking ──────────────────────────────────────────────
+            openNotePhotoLink() {
+                const picker = $('note-photo-picker');
+                const list   = $('note-photo-picker-list');
+                picker.classList.remove('hidden');
+                list.innerHTML = '';
+                const photos = state.items
+                    .filter(i => i.type === 'photo' && i.url)
+                    .slice(0, 30); // cap at 30
+                if (photos.length === 0) {
+                    list.innerHTML = '<p class="text-xs text-slate-400 py-2">No photos in this project yet</p>';
+                    return;
+                }
+                photos.forEach(p => {
+                    const btn = document.createElement('button');
+                    btn.className = 'flex-none flex flex-col items-center gap-1 group';
+                    btn.onclick = () => { this._noteLinkedPhotoId = p.id; this._renderLinkedPhoto(p.id); this.closeNotePhotoLink(); };
+                    btn.innerHTML = `
+                        <div class="w-14 h-14 rounded-lg overflow-hidden border-2 border-transparent group-hover:border-emerald-400 transition">
+                            <img src="${p.url}" class="w-full h-full object-cover" onerror="this.parentElement.parentElement.style.display='none'">
+                        </div>
+                        <span class="text-[9px] text-slate-500 font-bold">#${p.photoNumber || '?'}</span>`;
+                    list.appendChild(btn);
+                });
+            }
+
+            closeNotePhotoLink() {
+                $('note-photo-picker').classList.add('hidden');
+            }
+
+            _renderLinkedPhoto(photoId) {
+                const photo = state.items.find(i => i.id === photoId);
+                if (!photo) return;
+                const thumb = $('note-linked-thumb');
+                const img   = $('note-linked-img');
+                const title = $('note-linked-title');
+                const btnLink  = $('btn-link-photo');
+                const btnClear = $('btn-clear-photo-link');
+                if (img) img.src = photo.url || '';
+                thumb?.classList.remove('hidden');
+                title.innerText = `Photo #${photo.photoNumber || '?'} — ${photo.title || 'Untitled'}`;
+                title.classList.remove('hidden');
+                btnLink.style.display  = 'none';
+                btnClear?.classList.remove('hidden');
+            }
+
+            clearNotePhotoLink() {
+                this._noteLinkedPhotoId = null;
+                $('note-linked-thumb')?.classList.add('hidden');
+                $('note-linked-title')?.classList.add('hidden');
+                $('btn-clear-photo-link')?.classList.add('hidden');
+                $('btn-link-photo').style.display = '';
+            }
+
+
 
             loadData() {
                 // Unsubscribe previous listener to avoid stale data from old project
@@ -3590,7 +4540,9 @@
 
                 if (item.type === 'note') {
                     $('report-preview-note-title').innerText = item.title || 'Note';
-                    $('report-preview-note-body').innerText = item.text || item.detailedDesc || '';
+                    const bodyEl = $('report-preview-note-body');
+                    if (item.html) { bodyEl.innerHTML = item.html; }
+                    else { bodyEl.innerText = item.text || item.detailedDesc || ''; }
                     $('report-preview-note-date').innerText = item.dateString || '';
                     $('report-preview-note').classList.remove('hidden');
                 } else {
@@ -3656,7 +4608,7 @@
                 filtered.forEach(item => {
                     const div = document.createElement('div');
                     div.id = `feed-row-${item.id}`;
-                    div.className = "feed-row bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex transition hover:shadow-md relative cursor-pointer";
+                    div.className = "feed-row feed-card flex relative cursor-pointer";
                     div.onclick = (e) => {
                         // Don't trigger preview if clicking edit/delete buttons or checkbox
                         if (e.target.closest('button') || e.target.closest('input[type=checkbox]')) return;
@@ -3667,7 +4619,10 @@
                     if(item.type === 'photo' || item.type === 'sketch') {
                         div.innerHTML = `${checkboxHtml}<div class="w-24 h-24 bg-slate-200 relative flex-none flex items-center justify-center text-slate-400"><i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i><img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'"></div><div class="p-3 flex-1 flex flex-col justify-between overflow-hidden"><div><div class="flex justify-between items-start"><div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div><div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div></div><h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4><p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p></div><div class="flex justify-end gap-3 mt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     } else {
-                        div.innerHTML = `${checkboxHtml}<div class="w-2 bg-yellow-400 flex-none"></div><div class="p-3 flex-1"><div class="flex justify-between items-start mb-1"><span class="text-[10px] text-slate-400 font-mono ml-6">${item.dateString}</span><i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i></div><h4 class="text-sm font-bold text-slate-800">${item.title || 'Note'}</h4><p class="text-xs text-slate-600 mt-1 line-clamp-2">${item.text}</p><div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
+                        const linkedPhoto = item.linkedPhotoId ? state.items.find(i => i.id === item.linkedPhotoId) : null;
+                        const linkedThumb = linkedPhoto ? `<img src="${linkedPhoto.url}" class="w-10 h-10 rounded border border-slate-200 object-cover flex-none ml-2" title="Linked: Photo #${linkedPhoto.photoNumber||'?'}">` : '';
+                        const modBadge = item.modifiedAt ? `<span class="text-[9px] text-slate-400 ml-1">· edited</span>` : '';
+                        div.innerHTML = `${checkboxHtml}<div class="w-2 bg-yellow-400 flex-none"></div><div class="p-3 flex-1 min-w-0"><div class="flex justify-between items-start mb-1"><span class="text-[10px] text-slate-400 font-mono ml-6">${item.dateString}${modBadge}</span><div class="flex items-center gap-1">${linkedThumb}<i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i></div></div><h4 class="text-sm font-bold text-slate-800">${item.title || 'Note'}</h4><p class="text-xs text-slate-600 mt-1 line-clamp-2">${item.text}</p><div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     }
                     feed.appendChild(div);
                 });
@@ -5801,26 +6756,4 @@
                 await Promise.all(list.map(async (i) => {
                     try {
                         const u = isRaw ? await getDownloadURL(ref(state.storage, i.rawStoragePath)) : i.url;
-                        const b = await (await fetch(u)).blob();
-                        zip.file(`${i.projectId}_${i.id}${isRaw?'_RAW':''}.jpg`, b);
-                    } catch(e) { console.warn('Skipping file in zip', i.id, e); }
-                }));
-                const c = await zip.generateAsync({type:"blob"});
-                const a = document.createElement('a'); a.href = URL.createObjectURL(c); a.download = `${state.project}_${name}.zip`; a.click();
-                setTimeout(() => URL.revokeObjectURL(a.href), 10000);
-                toggleLoader(false);
-            }
-
-            urlToBase64(url) {
-                return new Promise((r, j) => {
-                    const img = new Image(); img.crossOrigin='Anonymous';
-                    img.onload = () => { const c = document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext('2d').drawImage(img,0,0); r(c.toDataURL('image/jpeg')); };
-                    img.onerror = j; img.src = url;
-                });
-            }
-        }
-
-        window.onload = () => { window.app = new FieldApp(); };
-    </script>
-</body>
-</html>
+                        const b = await (await 
