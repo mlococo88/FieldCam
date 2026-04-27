@@ -769,9 +769,15 @@
                     </div>
                 </div>
             </div>
-            <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
-                <button onclick="window.app.closeCaptionModal()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
-                <button onclick="window.app.confirmUpload()" id="btn-save-upload" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Save</button>
+            <div class="p-3 border-t border-slate-200 bg-slate-50 flex-none">
+                <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none mb-3">
+                    <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 accent-blue-600 rounded">
+                    <span id="overlay-status">Burn GPS/date overlay into photo</span>
+                </label>
+                <div class="flex gap-3">
+                    <button onclick="window.app.closeCaptionModal()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
+                    <button onclick="window.app.confirmUpload()" id="btn-save-upload" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Save</button>
+                </div>
             </div>
         </div>
     </div>
@@ -2346,7 +2352,7 @@
             updateOverlayStatus() {
                 const el = $('overlay-status');
                 if (!el) return;
-                if (!$('burn-toggle') || !$('burn-toggle').checked) { el.classList.add('hidden'); return; }
+                if (!$('burn-toggle') || !($('burn-toggle')?.checked ?? true)) { el.classList.add('hidden'); return; }
                 const parts = [];
                 if (state.location) parts.push('GPS ✓');
                 else parts.push('GPS –');
@@ -3176,7 +3182,7 @@
 
             // #6 — Parallel upload with concurrency limit, #7 — pause/resume
             async _runQueueUpload() {
-                const doOverlay = $('burn-toggle').checked;
+                const doOverlay = ($('burn-toggle')?.checked ?? true);
                 const count = state.queue.length;
                 if (count === 0) return;
 
@@ -3421,7 +3427,7 @@
 
                 // BATCH MODE (gallery multi-select only — series mode uses uploadQueue/runQueueUpload)
                 if (state.batchMode) {
-                    const doOverlay = $('burn-toggle').checked;
+                    const doOverlay = ($('burn-toggle')?.checked ?? true);
                     const count = state.queue.length;
                     // Freeze max before loop — Firestore listener updates state.items mid-upload
                     let currentMax = state.items
@@ -3474,7 +3480,7 @@
                     return;
                 }
                 const meta = this.createMeta(state.pendingId, Date.now());
-                const doOverlay = $('burn-toggle').checked;
+                const doOverlay = ($('burn-toggle')?.checked ?? true);
                 const blobToUpload = state.pendingBlob;
                 meta.type = state.pendingType || 'photo';
 
