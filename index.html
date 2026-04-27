@@ -608,7 +608,7 @@
     </div>
 
     <!-- MODAL: NOTES -->
-    <div id="modal-notes" class="fixed inset-0 z-50" style="z-index:200;" bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
+    <div id="modal-notes" class="fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
         <div id="notes-inner" class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-200">
 
             <!-- Header -->
@@ -724,7 +724,7 @@
     </style>
 
     <!-- MODAL: CAPTION / EDIT -->
-    <div id="modal-caption" class="fixed inset-0 z-50 bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;">
+    <div id="modal-caption" class="fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
         <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="relative bg-slate-100 flex-none h-64 flex items-center justify-center border-b border-slate-200">
                 <img id="modal-img-preview" class="max-h-full max-w-full object-contain">
@@ -771,9 +771,13 @@
                 </div>
             </div>
             <div class="p-3 border-t border-slate-200 bg-slate-50 flex-none">
-                <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none mb-3">
+                <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none mb-2">
                     <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 accent-blue-600 rounded">
                     <span id="overlay-status">Burn GPS/date overlay into photo</span>
+                </label>
+                <label id="reburn-row" class="hidden items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 cursor-pointer select-none mb-2">
+                    <input type="checkbox" id="reburn-toggle" checked class="w-3.5 h-3.5 accent-amber-600 rounded">
+                    <span>Re-burn overlay with updated caption <span class="font-bold">(takes a moment)</span></span>
                 </label>
                 <div class="flex gap-3">
                     <button onclick="window.app.closeCaptionModal()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
@@ -1026,7 +1030,7 @@
     </div>
 
     <!-- MODAL: PER-PHOTO CAPTION (used in "caption each" mode) -->
-    <div id="modal-per-photo" class="fixed inset-0 z-[60]" style="z-index:200;" bg-black/90 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in">
+    <div id="modal-per-photo" class="fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
         <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="relative bg-slate-100 flex-none h-52 flex items-center justify-center border-b border-slate-200">
                 <img id="per-photo-img" class="max-h-full max-w-full object-contain">
@@ -1055,7 +1059,7 @@
     </div>
 
     <!-- MODAL: OUTBOX VIEWER -->
-    <div id="modal-outbox" class="fixed inset-0 z-50" style="z-index:200;" bg-black/80 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in">
+    <div id="modal-outbox" class="fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl">
 
             <!-- Header -->
@@ -1105,7 +1109,7 @@
     </div>
 
     <!-- MODAL: PDF REPORT OPTIONS -->
-    <div id="modal-pdf-options" class="fixed inset-0 z-50" style="z-index:200;" bg-black/80 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in">
+    <div id="modal-pdf-options" class="fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
 
             <!-- Header -->
@@ -1309,7 +1313,7 @@
     </div>
 
     <!-- MODAL: EXPORT -->
-    <div id="export-modal" class="fixed inset-0 z-50" style="z-index:200;" bg-black/80 hidden flex items-center justify-center p-4 fade-in">
+    <div id="export-modal" class="fixed inset-0 hidden flex items-center justify-center p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
             <div class="p-5 border-b border-slate-100 flex justify-between items-center">
                 <h3 class="font-bold text-slate-800">Export Options</h3>
@@ -1337,7 +1341,7 @@
     </div>
 
     <!-- MODAL: SETTINGS -->
-    <div id="settings-modal" class="fixed inset-0 z-50" style="z-index:200;" bg-black/80 hidden flex items-center justify-center p-4 fade-in">
+    <div id="settings-modal" class="fixed inset-0 hidden flex items-center justify-center p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl">
             <h3 class="text-lg font-bold text-slate-800 mb-4">Project Settings</h3>
 
@@ -1423,7 +1427,7 @@
     </div>
 
     <!-- MODAL: IMAGE DETAIL -->
-    <div id="detail-modal" class="fixed inset-0 z-[60]" style="z-index:200;" bg-black hidden flex flex-col justify-center fade-in">
+    <div id="detail-modal" class="fixed inset-0 hidden flex flex-col justify-center fade-in" style="z-index:200;background:black;">
         <div class="absolute top-0 w-full p-4 bg-gradient-to-b from-black/80 to-transparent z-10 flex justify-between items-start text-white">
             <div>
                 <h3 class="font-bold text-lg" id="det-project"></h3>
@@ -3387,6 +3391,26 @@
                 }
 
                 state.editMode = isEdit;
+
+                // Edit mode: show re-burn option, hide burn-toggle (n/a for edits)
+                const reburnRow = $('reburn-row');
+                const burnLabel = $('burn-toggle')?.closest('label');
+                if (isEdit) {
+                    const hasRaw = state.currentItem?.rawStoragePath;
+                    if (reburnRow) {
+                        reburnRow.style.display = hasRaw ? 'flex' : 'none';
+                        $('reburn-toggle').checked = true;
+                    }
+                    if (burnLabel) burnLabel.style.display = 'none';
+                    $('btn-save-upload').innerText = 'Update Caption';
+                    $('btn-save-upload').onclick = () => window.app.updateEntry();
+                } else {
+                    if (reburnRow) reburnRow.style.display = 'none';
+                    if (burnLabel) burnLabel.style.display = '';
+                    $('btn-save-upload').innerText = 'Save';
+                    $('btn-save-upload').onclick = () => window.app.confirmUpload();
+                }
+
                 $('modal-caption').classList.remove('hidden');
                 lucide.createIcons();
             }
@@ -4781,13 +4805,33 @@
                 const item = state.currentItem;
                 const newTitle = $('cap-title').value.trim(), newDesc = $('cap-desc').value.trim();
                 const newCaption = (newTitle && newDesc) ? `${newTitle} - ${newDesc}` : (newDesc || newTitle);
+
+                // Check if user wants to re-burn the overlay with new caption
+                const doReburn = $('reburn-toggle')?.checked && item.rawStoragePath && item.storagePath;
+
                 await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
                     { title: newTitle, detailedDesc: newDesc, caption: newCaption },
                     { merge: true });
-                // Update lastCaption so "Use Last" reflects the edited values
                 if (newTitle || newDesc) state.lastCaption = { title: newTitle, desc: newDesc };
+
+                if (doReburn) {
+                    toggleLoader(true, 'Re-burning overlay…');
+                    try {
+                        const updatedMeta = { ...item, title: newTitle, detailedDesc: newDesc, caption: newCaption };
+                        const rawUrl  = await getDownloadURL(ref(state.storage, item.rawStoragePath));
+                        const rawBlob = await (await fetch(rawUrl)).blob();
+                        const newOverlay = await this.burnOverlay(rawBlob, updatedMeta);
+                        await uploadBytes(ref(state.storage, item.storagePath), newOverlay);
+                        showToast('✓ Caption updated and overlay re-burned');
+                    } catch(e) {
+                        showToast('Caption saved — overlay re-burn failed: ' + e.message);
+                    } finally {
+                        toggleLoader(false);
+                    }
+                } else {
+                    showToast('Caption Updated');
+                }
                 this.closeCaptionModal();
-                showToast("Entry Updated");
             }
 
             initMap() {
