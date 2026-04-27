@@ -244,20 +244,16 @@
         </div>
     </header>
 
-    <!-- CAPTURE BAR — 5 action buttons, always visible above content -->
+    <!-- CAPTURE BAR — 5 buttons. Camera: tap=camera, long-press=gallery -->
     <div id="capture-bar">
-        <!-- Hidden file inputs -->
         <input type="file" id="camera-input"  accept="image/*" capture="environment" style="display:none;">
         <input type="file" id="gallery-input" accept="image/*" multiple style="display:none;">
 
-        <button class="cap-btn primary" onclick="window.app.openCamera()" title="Take a live photo">
+        <!-- Camera: tap = live camera, long-press (500ms) = gallery -->
+        <button id="btn-camera-main" class="cap-btn primary"
+            title="Tap: Camera · Long-press: Gallery">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
             <span>Camera</span>
-        </button>
-
-        <button class="cap-btn" onclick="window.app._triggerGallery()" title="Import from camera roll">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-            <span>Gallery</span>
         </button>
 
         <button class="cap-btn" onclick="window.app.openSketch()" title="Draw a field sketch">
@@ -265,14 +261,19 @@
             <span>Sketch</span>
         </button>
 
-        <button class="cap-btn" onclick="window.app.openNotes()" title="Add a typed note">
+        <button class="cap-btn" onclick="window.app.switchTab('plans')" title="Open plans &amp; drawings">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-            <span>Notes</span>
+            <span>Plans</span>
+        </button>
+
+        <button class="cap-btn" onclick="window.app.openNotes()" title="Add a typed note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+            <span>Digital Notes</span>
         </button>
 
         <button class="cap-btn" onclick="window.app.openNotepad()" title="Open handwritten note pad">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-            <span>Note Pad</span>
+            <span>Quick Notes</span>
         </button>
     </div>
 
@@ -303,7 +304,8 @@
                             <button onclick="window.app.setFilter('all')" id="filter-all" class="px-3 py-1.5 rounded text-xs font-bold transition bg-white shadow text-slate-800">All</button>
                             <button onclick="window.app.setFilter('photo')" id="filter-photo" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Photos</button>
                             <button onclick="window.app.setFilter('sketch')" id="filter-sketch" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Sketches</button>
-                            <button onclick="window.app.setFilter('note')" id="filter-note" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Notes</button>
+                            <button onclick="window.app.setFilter('note')" id="filter-note" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Digital Notes</button>
+                            <button onclick="window.app.setFilter('notepad')" id="filter-notepad" class="px-3 py-1.5 rounded text-xs font-bold transition text-slate-500 hover:text-slate-700">Quick Notes</button>
                         </div>
                     </div>
                     <div id="report-feed" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 pb-20"></div>
@@ -445,7 +447,7 @@
 
     </main>
 
-    <!-- BOTTOM NAVIGATION — 4 tabs (Inspect replaced by capture bar) -->
+    <!-- BOTTOM NAVIGATION — 3 tabs (Plans moved to capture bar) -->
     <nav style="background:var(--surface);border-top:1px solid var(--border);display:flex;height:60px;padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;z-index:30;">
         <button id="nav-report" onclick="window.app.switchTab('report')" class="nav-btn active" style="position:relative;">
             <i data-lucide="clipboard-list" style="width:20px;height:20px;"></i>
@@ -459,11 +461,6 @@
         <button id="nav-files" onclick="window.app.switchTab('files')" class="nav-btn">
             <i data-lucide="hard-drive" style="width:20px;height:20px;"></i>
             <span>Files</span>
-        </button>
-        <button id="nav-plans" onclick="window.app.switchTab('plans')" class="nav-btn" style="position:relative;">
-            <i data-lucide="file-text" style="width:20px;height:20px;"></i>
-            <span>Plans</span>
-            <span id="nav-plans-badge" style="display:none;position:absolute;top:8px;right:8px;background:#f97316;color:white;font-size:8px;font-weight:700;padding:1px 5px;border-radius:999px;line-height:1.4;"></span>
         </button>
     </nav>
 
@@ -1869,6 +1866,7 @@
                 this.initSensors();
                 this.bindEvents();
                 lucide.createIcons();
+                this.initCaptureBar();
                 // #9 restore last active tab
                 const lastTab = localStorage.getItem('fp_last_tab');
                 // Default to Log tab (formerly Inspect); skip if stored tab is the old 'inspect'
@@ -4539,9 +4537,16 @@
                     const div = document.createElement('div');
                     div.className = 'bg-white rounded-xl border border-slate-200 overflow-hidden flex cursor-pointer hover:shadow-md hover:border-blue-200 transition group';
                     div.onclick = () => { window.app.switchTab('report'); setTimeout(() => window.app.showDesktopPreview(item.id), 100); };
-                    const isNote = item.type === 'note';
-                    const typeColor = isNote ? 'bg-yellow-50 text-yellow-600' : item.type === 'sketch' ? 'bg-purple-50 text-purple-600' : 'bg-blue-50 text-blue-600';
-                    const typeLabel = isNote ? 'Note' : item.type === 'sketch' ? 'Sketch' : `Photo #${item.photoNumber || '?'}`;
+                    const isNote    = item.type === 'note';
+                    const isNotepad = item.type === 'notepad';
+                    const typeColor = isNote    ? 'bg-yellow-50 text-yellow-600'
+                                    : isNotepad ? 'bg-sky-50 text-sky-600'
+                                    : item.type === 'sketch' ? 'bg-purple-50 text-purple-600'
+                                    : 'bg-blue-50 text-blue-600';
+                    const typeLabel = isNote    ? 'Note'
+                                    : isNotepad ? 'Note Pad'
+                                    : item.type === 'sketch' ? 'Sketch'
+                                    : `Photo #${item.photoNumber || '?'}`;
                     const thumb = (!isNote && item.url)
                         ? `<div class="w-16 h-16 flex-none bg-slate-200 overflow-hidden"><img src="${item.url}" class="w-full h-full object-cover" onerror="this.style.display='none'"></div>`
                         : `<div class="w-16 h-16 flex-none ${isNote ? 'bg-yellow-50' : 'bg-purple-50'} flex items-center justify-center text-2xl">${isNote ? '📝' : '✏️'}</div>`;
@@ -4598,8 +4603,13 @@
                     $('report-preview-date').innerText = item.dateString || '';
 
                     const badge = $('report-preview-badge');
-                    badge.innerText = item.type === 'sketch' ? 'Sketch' : `Photo #${item.photoNumber || '?'}`;
-                    badge.className = `text-[10px] font-bold px-2 py-0.5 rounded ml-2 flex-none ${item.type === 'sketch' ? 'bg-purple-900 text-purple-300' : 'bg-blue-900 text-blue-300'}`;
+                    badge.innerText = item.type === 'sketch' ? 'Sketch'
+                                      : item.type === 'notepad' ? 'Note Pad'
+                                      : `Photo #${item.photoNumber || '?'}`;
+                    badge.className = `text-[10px] font-bold px-2 py-0.5 rounded ml-2 flex-none ${
+                        item.type === 'sketch'  ? 'bg-purple-900 text-purple-300' :
+                        item.type === 'notepad' ? 'bg-sky-900 text-sky-300' :
+                        'bg-blue-900 text-blue-300'}`;
 
                     const gpsEl = $('report-preview-gps');
                     if (item.lat) {
@@ -4658,7 +4668,7 @@
                     };
                     const isChecked = !state.excludedReportItems.has(item.id);
                     const checkboxHtml = `<div class="absolute top-2 left-2 z-20" onclick="event.stopPropagation()"><input type="checkbox" class="w-5 h-5 accent-blue-600 rounded cursor-pointer shadow-sm" ${isChecked ? 'checked' : ''} onchange="window.app.toggleReportSelection('${item.id}')"></div>`;
-                    if(item.type === 'photo' || item.type === 'sketch') {
+                    if(item.type === 'photo' || item.type === 'sketch' || item.type === 'notepad') {
                         div.innerHTML = `${checkboxHtml}<div class="w-24 h-24 bg-slate-200 relative flex-none flex items-center justify-center text-slate-400"><i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i><img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'"></div><div class="p-3 flex-1 flex flex-col justify-between overflow-hidden"><div><div class="flex justify-between items-start"><div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div><div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div></div><h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4><p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p></div><div class="flex justify-end gap-3 mt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     } else {
                         const linkedPhoto = item.linkedPhotoId ? state.items.find(i => i.id === item.linkedPhotoId) : null;
@@ -4725,6 +4735,7 @@
                 const item = state.items.find(i => i.id === id);
                 if(!item) return;
                 state.currentItem = item;
+                if(item.type === 'notepad') { showToast('Open Note Pad to edit pages'); return; }
                 if(item.type === 'photo' || item.type === 'sketch') this.openCaptionModal(item.url, true);
                 else this.openNotes(item);
             }
@@ -5412,7 +5423,7 @@
 
                     // ── WORKING NOTES (NOTEPAD) ─────────────────────────────
                     if (o.secNotepad) {
-                        const npItems = sortedItems.filter(i => i.subtype === 'notepad');
+                        const npItems = sortedItems.filter(i => i.type === 'notepad');
                         if (npItems.length > 0) {
                             await addImagesSection('Working Notes — Note Pad', npItems);
                         }
@@ -5609,13 +5620,10 @@
 
                     if (items.length === 0) {
                         empty.classList.remove('hidden');
-                        $('nav-plans-badge').classList.add('hidden');
-                        return;
+                            return;
                     }
 
                     empty.classList.add('hidden');
-                    $('nav-plans-badge').innerText = items.length;
-                    $('nav-plans-badge').classList.remove('hidden');
 
                     items.forEach(({ item, meta }) => {
                         const override  = metaOverrides[item.fullPath] || {};
@@ -7273,21 +7281,15 @@
                     const projectKey = state.project.replace(/[^a-z0-9]/gi, '_').slice(0, 20);
                     const id = `np_${projectKey}_p${idx}`;
 
-                    // Reuse existing photoNumber if this page was saved before,
-                    // otherwise assign the next available number.
                     const existing = state.items.find(i => i.id === id);
-                    const num = existing?.photoNumber
-                        ?? (state.items.filter(i => i.type === 'photo')
-                               .reduce((m, i) => Math.max(m, i.photoNumber || 0), 0) + 1);
 
                     const meta = {
-                        id, projectId: state.project, type: 'photo', subtype: 'notepad',
+                        id, projectId: state.project, type: 'notepad',
                         title: 'Note Pad — Page ' + (idx + 1),
                         detailedDesc: 'Handwritten notepad page ' + (idx + 1),
                         caption: 'Note Pad — Page ' + (idx + 1),
                         timestamp: Date.now(), dateString: formatDate(Date.now()),
                         lat: state.location?.lat || null, lng: state.location?.lng || null,
-                        photoNumber: num,
                     };
                     try {
                         toggleLoader(true, 'Saving page…');
@@ -7323,6 +7325,32 @@
 
 
             // ── CAPTURE BAR ────────────────────────────────────────────────
+            initCaptureBar() {
+                const btn = $('btn-camera-main');
+                if (!btn) return;
+                let holdTimer = null;
+                // Tap = camera, long-press (500ms) = gallery
+                btn.addEventListener('pointerdown', (e) => {
+                    if (e.button !== 0 && e.pointerType !== 'touch' && e.pointerType !== 'pen') return;
+                    holdTimer = setTimeout(() => {
+                        holdTimer = null;
+                        this._triggerGallery();
+                        // Visual feedback for long-press
+                        btn.style.background = 'var(--blue-dark)';
+                        setTimeout(() => btn.style.background = '', 300);
+                    }, 500);
+                });
+                const cancelHold = () => { clearTimeout(holdTimer); holdTimer = null; };
+                btn.addEventListener('pointerup', (e) => {
+                    if (holdTimer !== null) {
+                        cancelHold();
+                        this.openCamera(); // only open camera if hold didn't fire
+                    }
+                });
+                btn.addEventListener('pointercancel', cancelHold);
+                btn.addEventListener('contextmenu', e => e.preventDefault());
+            }
+
             _triggerGallery() {
                 $('gallery-input')?.click();
             }
