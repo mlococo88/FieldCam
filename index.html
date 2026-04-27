@@ -29,325 +29,325 @@
     <script src="https://unpkg.com/lucide@0.383.0/dist/umd/lucide.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #f1f5f9; }
-        .tab-content { display: none; height: 100%; overflow-y: auto; }
-        .tab-content.active { display: block; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        #map-container { height: 100%; width: 100%; z-index: 1; }
-        .fade-in { animation: fadeIn 0.2s ease-in-out; }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        canvas { touch-action: none; }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    /* ── Design System ─────────────────────────────────────────────── */
+    :root {
+        --blue:       #2563eb;
+        --blue-dark:  #1d4ed8;
+        --blue-light: #eff6ff;
+        --surface:    #ffffff;
+        --surface-2:  #f8fafc;
+        --surface-3:  #f1f5f9;
+        --border:     #e2e8f0;
+        --text-1:     #0f172a;
+        --text-2:     #475569;
+        --text-3:     #94a3b8;
+        --radius:     10px;
+        --radius-lg:  14px;
+        --shadow:     0 1px 3px rgba(0,0,0,.07), 0 1px 2px rgba(0,0,0,.04);
+        --shadow-md:  0 4px 16px rgba(0,0,0,.09), 0 2px 4px rgba(0,0,0,.05);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        -webkit-font-smoothing: antialiased;
+        color: var(--text-1);
+        background: var(--surface-2);
+        height: 100dvh; display: flex; flex-direction: column; overflow: hidden;
+    }
 
-        /* ── Design tokens ── */
-        :root {
-            --brand:      #2563eb;
-            --brand-dark: #1d4ed8;
-            --surface:    #ffffff;
-            --surface-2:  #f8fafc;
-            --surface-3:  #f1f5f9;
-            --border:     #e2e8f0;
-            --border-2:   #cbd5e1;
-            --text-1:     #0f172a;
-            --text-2:     #475569;
-            --text-3:     #94a3b8;
-            --radius-sm:  8px;
-            --radius-md:  12px;
-            --radius-lg:  16px;
-            --shadow-sm:  0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
-            --shadow-md:  0 4px 12px rgba(0,0,0,.10), 0 2px 4px rgba(0,0,0,.06);
-        }
+    /* ── Tab system ────────────────────────────────────────────────── */
+    .tab-content { display: none; height: 100%; }
+    .tab-content.active { display: block; overflow-y: auto; }
+    #tab-inspect.active { display: flex; flex-direction: column; }
+    #tab-plans.active   { display: flex; flex-direction: column; }
+    #tab-report.active  { display: block; overflow-y: hidden; }
+    #tab-map.active     { display: block; }
+    #tab-files.active   { display: block; }
 
-        /* ── Base ── */
-        body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-               -webkit-font-smoothing: antialiased; background: var(--surface-3); }
+    /* ── Desktop two-col ───────────────────────────────────────────── */
+    @media (min-width: 768px) {
+        .tab-content { overflow-y: hidden; }
+        /* tab-inspect removed — capture moved to persistent bar */
+        #tab-report  { display: none; }
+        #tab-report.active  { display: grid; grid-template-columns: 420px 1fr; height: 100%; }
+        .inspect-left  { padding: 1.5rem; overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface-2); }
+        .inspect-right { display: flex; flex-direction: column; overflow: hidden; }
+        .report-left   { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
+        .report-right  { display: flex; flex-direction: column; overflow: hidden; background: #0f172a; }
+    }
+    @media (max-width: 767px) {
+        .inspect-left, .inspect-right, .report-left, .report-right { display: contents; }
+    }
 
-        /* ── Capture tile — solid card, no dashed border ── */
-        .capture-tile {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-sm);
-            transition: box-shadow .15s, transform .1s;
-            display: flex; flex-direction: column;
-            align-items: center; justify-content: center;
-            padding: 1.25rem 1rem;
-            cursor: pointer; user-select: none;
-            min-height: 110px;
-        }
-        .capture-tile:hover  { box-shadow: var(--shadow-md); }
-        .capture-tile:active { transform: scale(.97); box-shadow: var(--shadow-sm); }
+    /* ── Card ──────────────────────────────────────────────────────── */
+    .card {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+    }
 
-        .capture-icon {
-            width: 44px; height: 44px; border-radius: 14px;
-            display: flex; align-items: center; justify-content: center;
-            margin-bottom: .625rem;
-            transition: transform .15s;
-        }
-        .capture-tile:hover .capture-icon { transform: scale(1.08); }
+    /* ── Capture tiles ─────────────────────────────────────────────── */
+    .capture-tile {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        padding: 1.25rem .75rem;
+        cursor: pointer; user-select: none;
+        transition: box-shadow .15s ease, transform .1s ease, border-color .15s ease;
+        width: 100%; text-align: center;
+    }
+    .capture-tile:hover  { box-shadow: var(--shadow-md); border-color: #cbd5e1; }
+    .capture-tile:active { transform: scale(.96); box-shadow: var(--shadow); }
+    .capture-icon {
+        width: 40px; height: 40px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: .625rem; transition: transform .15s;
+        flex-shrink: 0;
+    }
+    .capture-tile:hover .capture-icon { transform: scale(1.07); }
 
-        /* ── Sensor tile ── */
-        .sensor-tile {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            padding: .75rem 1rem;
-            cursor: pointer; transition: box-shadow .15s;
-            display: flex; flex-direction: column; align-items: center; text-align: center;
-        }
-        .sensor-tile:hover { box-shadow: var(--shadow-md); }
+    /* ── Section label ─────────────────────────────────────────────── */
+    .lbl {
+        font-size: .6875rem; font-weight: 600;
+        letter-spacing: .06em; text-transform: uppercase;
+        color: var(--text-3);
+    }
 
-        /* ── Nav ── */
-        .nav-item { position: relative; }
-        .nav-item.active::before {
-            content: '';
-            position: absolute; top: 0; left: 20%; right: 20%;
-            height: 2.5px; border-radius: 0 0 3px 3px;
-            background: var(--brand);
-        }
+    /* ── Nav ───────────────────────────────────────────────────────── */
+    .nav-btn {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        gap: 3px; padding: 8px 4px;
+        color: var(--text-3); cursor: pointer; border: none;
+        background: none; position: relative;
+        transition: color .15s;
+    }
+    .nav-btn span { font-size: .625rem; font-weight: 600; }
+    .nav-btn.active { color: var(--blue); }
+    .nav-btn.active::after {
+        content: '';
+        position: absolute; bottom: 0; left: 25%; right: 25%;
+        height: 2px; border-radius: 2px 2px 0 0;
+        background: var(--blue);
+    }
+    .nav-btn:hover:not(.active) { color: var(--text-2); }
 
-        /* ── Feed card ── */
-        .feed-card {
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-sm);
-            overflow: hidden;
-            transition: box-shadow .15s, border-color .15s;
-        }
-        .feed-card:hover { box-shadow: var(--shadow-md); border-color: var(--border-2); }
+    /* ── Feed card ─────────────────────────────────────────────────── */
+    .feed-card {
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); box-shadow: var(--shadow);
+        overflow: hidden; transition: box-shadow .15s, border-color .15s;
+    }
+    .feed-card:hover { box-shadow: var(--shadow-md); border-color: #c7d2e0; }
+    .feed-card.selected { border-color: var(--blue); box-shadow: 0 0 0 2px rgba(37,99,235,.15); }
 
-        /* ── Button system ── */
-        .btn-primary {
-            background: var(--brand); color: #fff; font-weight: 700;
-            border-radius: var(--radius-md); padding: .75rem 1.5rem;
-            font-size: .875rem; border: none; cursor: pointer;
-            transition: background .15s, transform .1s, box-shadow .15s;
-            box-shadow: 0 1px 3px rgba(37,99,235,.3);
-        }
-        .btn-primary:hover  { background: var(--brand-dark); box-shadow: 0 4px 12px rgba(37,99,235,.35); }
-        .btn-primary:active { transform: scale(.97); }
+    /* ── Sensor bar ────────────────────────────────────────────────── */
+    .sensor-bar { display: flex; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .sensor-btn { flex: 1; padding: 10px 8px; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; border: none; background: none; transition: background .12s; }
+    .sensor-btn:not(:last-child) { border-right: 1px solid var(--border); }
+    .sensor-btn:hover { background: var(--surface-2); }
+    .sensor-btn:active { background: var(--surface-3); }
 
-        .btn-secondary {
-            background: var(--surface); color: var(--text-2); font-weight: 600;
-            border: 1px solid var(--border-2); border-radius: var(--radius-md);
-            padding: .75rem 1.5rem; font-size: .875rem; cursor: pointer;
-            transition: background .15s, border-color .15s;
-        }
-        .btn-secondary:hover { background: var(--surface-2); border-color: var(--brand); color: var(--brand); }
+    /* ── Misc ──────────────────────────────────────────────────────── */
+    canvas { touch-action: none; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #dde1e7; border-radius: 99px; }
 
-        /* ── Section header ── */
-        .section-label {
-            font-size: .625rem; font-weight: 700; letter-spacing: .08em;
-            text-transform: uppercase; color: var(--text-3);
-        }
+    /* ── Leaflet popup ─────────────────────────────────────────────── */
+    .field-cam-popup .leaflet-popup-content-wrapper { padding:0; border-radius:10px; overflow:hidden; box-shadow:0 8px 24px rgba(0,0,0,.18); border:none; }
+    .field-cam-popup .leaflet-popup-content { margin:0; line-height:1.4; }
+    .field-cam-popup .leaflet-popup-tip-container { margin-top:-1px; }
 
-        /* ── Scrollbar polish ── */
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    /* ── Upload bar ────────────────────────────────────────────────── */
+    #upload-timeout-bar { display:none; position:fixed; top:0; left:0; right:0; height:3px; background:#e2e8f0; z-index:200; }
+    #upload-timeout-bar .fill { height:100%; background:linear-gradient(90deg,#3b82f6,#f59e0b); width:100%; transform-origin:left; transition:transform linear; }
+    #upload-timeout-label { display:none; position:fixed; top:5px; left:50%; transform:translateX(-50%); background:#1e293b; color:white; font-size:10px; font-weight:700; padding:2px 10px; border-radius:999px; z-index:201; letter-spacing:.05em; }
 
-        /* ── Desktop two-column layout ── */
-        @media (min-width: 768px) {
-            .tab-content { overflow-y: hidden; }
-            #tab-inspect { display: none; }
-            #tab-inspect.active { display: grid; grid-template-columns: 340px 1fr; gap: 0; padding: 0; height: 100%; }
-            #tab-report { display: none; }
-            #tab-report.active { display: grid; grid-template-columns: 420px 1fr; height: 100%; }
-            .inspect-left { padding: 1.5rem; overflow-y: auto; border-right: 1px solid #e2e8f0; background: #f8fafc; }
-            .inspect-right { display: flex; flex-direction: column; overflow: hidden; }
-            .report-left { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid #e2e8f0; }
-            .report-right { display: flex; flex-direction: column; overflow: hidden; background: #0f172a; }
-            #tab-files .file-grid-inner { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-        }
-        @media (max-width: 767px) {
-            .inspect-left, .inspect-right, .report-left, .report-right { display: contents; }
-        }
+    /* ── Animations ────────────────────────────────────────────────── */
+    .fade-in { animation: fadeIn .18s ease; }
+    @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
 
-        /* ── Custom map popup styling ── */
-        .field-cam-popup .leaflet-popup-content-wrapper {
-            padding: 0;
-            border-radius: 10px;
-            overflow: hidden;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.18);
-            border: none;
-        }
-        .field-cam-popup .leaflet-popup-content {
-            margin: 0;
-            line-height: 1.4;
-        }
-        .field-cam-popup .leaflet-popup-tip-container {
-            margin-top: -1px;
-        }
+    /* ── Notes full-screen ─────────────────────────────────────────── */
+    .notes-fullscreen #notes-inner { max-width:100% !important; max-height:100% !important; height:100% !important; border-radius:0 !important; }
+    .notes-fullscreen #note-editor { max-height:none !important; height:100% !important; }
+    .notes-fullscreen { padding:0 !important; align-items:stretch !important; }
 
-        /* ── Upload timeout countdown bar ── */
-        #upload-timeout-bar {
-            display: none;
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            height: 4px;
-            background: #e2e8f0;
-            z-index: 200;
-        }
-        #upload-timeout-bar .fill {
-            height: 100%;
-            background: linear-gradient(90deg, #3b82f6, #f59e0b);
-            width: 100%;
-            transform-origin: left;
-            transition: transform linear;
-        }
-        #upload-timeout-label {
-            display: none;
-            position: fixed;
-            top: 6px; left: 50%; transform: translateX(-50%);
-            background: #1e293b;
-            color: white;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 10px;
-            border-radius: 999px;
-            z-index: 201;
-            letter-spacing: 0.05em;
-        }
-    </style>
+    /* ── Note editor placeholder ───────────────────────────────────── */
+    #note-editor:empty:before { content:attr(data-placeholder); color:#94a3b8; pointer-events:none; }
+    #note-editor:focus:before { display:none; }
+
+    /* ── Sketch active tool ────────────────────────────────────────── */
+    .sk-tool.active-tool { background:var(--blue) !important; color:white !important; }
+
+    /* ── Capture sub-header ─────────────────────────────────────────── */
+    #capture-bar {
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 12px;
+        flex-shrink: 0;
+        z-index: 20;
+    }
+    #btn-camera-main {
+        display: flex; align-items: center; justify-content: center; gap: 7px;
+        background: var(--blue); color: white;
+        border: none; border-radius: 10px;
+        padding: 9px 18px; font-size: 13px; font-weight: 700;
+        cursor: pointer; flex-shrink: 0;
+        transition: background .15s, transform .1s;
+        -webkit-user-select: none; user-select: none;
+    }
+    #btn-camera-main:active { transform: scale(.96); background: var(--blue-dark); }
+
+    /* Sensor pill strip */
+    #sensor-strip {
+        flex: 1; display: flex; align-items: center; gap: 0;
+        background: var(--surface-2); border: 1px solid var(--border);
+        border-radius: 8px; overflow: hidden; min-width: 0;
+    }
+    .sensor-pill {
+        flex: 1; display: flex; flex-direction: column; align-items: center;
+        padding: 5px 4px; cursor: pointer; border: none; background: none;
+        transition: background .12s; min-width: 0;
+    }
+    .sensor-pill:not(:last-child) { border-right: 1px solid var(--border); }
+    .sensor-pill:hover { background: var(--surface-3); }
+    .sensor-pill .lbl { font-size: 9px; }
+    .sensor-pill span:last-child { font-size: 10px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+    /* FAB */
+    #capture-fab {
+        position: absolute; bottom: 88px; right: 16px; z-index: 20;
+        width: 52px; height: 52px; border-radius: 50%;
+        background: var(--blue); color: white; border: none;
+        box-shadow: 0 4px 16px rgba(37,99,235,.35);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; font-size: 26px; font-weight: 300;
+        transition: transform .15s, box-shadow .15s, background .15s;
+    }
+    #capture-fab:active { transform: scale(.93); box-shadow: 0 2px 8px rgba(37,99,235,.3); }
+
+    /* FAB action sheet */
+    #capture-sheet {
+        position: fixed; inset: 0; z-index: 50;
+        display: flex; flex-direction: column; justify-content: flex-end;
+    }
+    #capture-sheet-backdrop {
+        position: absolute; inset: 0; background: rgba(0,0,0,.4);
+    }
+    #capture-sheet-panel {
+        position: relative; background: var(--surface);
+        border-radius: 20px 20px 0 0;
+        padding: 20px 16px max(20px, env(safe-area-inset-bottom));
+        display: flex; flex-direction: column; gap: 10px;
+    }
+    #capture-sheet-panel .sheet-handle {
+        width: 36px; height: 4px; background: var(--border);
+        border-radius: 2px; margin: 0 auto 8px;
+    }
+    .sheet-action {
+        display: flex; align-items: center; gap: 14px;
+        padding: 13px 16px; border-radius: 14px;
+        background: var(--surface-2); border: 1px solid var(--border);
+        cursor: pointer; text-decoration: none;
+        transition: background .12s, border-color .12s;
+    }
+    .sheet-action:active { background: var(--surface-3); }
+    .sheet-action-icon {
+        width: 40px; height: 40px; border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        flex-shrink: 0;
+    }
+    .sheet-action-icon svg { width: 20px; height: 20px; }
+    .sheet-action-text { display: flex; flex-direction: column; gap: 1px; }
+    .sheet-action-text strong { font-size: 14px; font-weight: 600; color: var(--text-1); }
+    .sheet-action-text span { font-size: 11px; color: var(--text-3); }
+</style>
 </head>
-<body class="text-slate-800 h-[100dvh] flex flex-col overflow-hidden">
+<body>
 
     <!-- Upload timeout progress bar (shown during uploads) -->
     <div id="upload-timeout-bar"><div class="fill" id="upload-timeout-fill"></div></div>
     <div id="upload-timeout-label">Uploading… <span id="upload-timeout-secs">8</span>s</div>
 
     <!-- HEADER -->
-    <header class="bg-white z-30 px-4 h-[56px] flex justify-between items-center flex-none" style="border-bottom:1px solid var(--border); box-shadow: 0 1px 0 var(--border);">
-        <!-- Brand -->
-        <div class="flex items-center gap-3">
-            <div class="w-8 h-8 bg-blue-600 rounded-[10px] flex items-center justify-center shadow-sm flex-none">
-                <i data-lucide="camera" class="w-4 h-4 text-white"></i>
+    <header style="background:var(--surface);border-bottom:1px solid var(--border);height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 16px;flex-shrink:0;z-index:30;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:32px;height:32px;background:var(--blue);border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <i data-lucide="camera" style="width:16px;height:16px;color:white;"></i>
             </div>
             <div>
-                <div class="text-sm font-bold text-slate-900 leading-none tracking-tight">Field Cam</div>
-                <!-- Project switcher -->
-                <button onclick="window.app.toggleSettings()"
-                    class="flex items-center gap-0.5 text-[11px] text-blue-600 font-semibold hover:text-blue-800 transition leading-none mt-0.5">
+                <div style="font-size:14px;font-weight:700;color:var(--text-1);line-height:1;">Field Cam</div>
+                <button onclick="window.app.toggleSettings()" style="display:flex;align-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--blue);background:none;border:none;padding:0;cursor:pointer;margin-top:1px;">
                     <span id="header-project-name">Select Project</span>
-                    <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                    <i data-lucide="chevron-down" style="width:12px;height:12px;"></i>
                 </button>
             </div>
         </div>
-
-        <!-- Right cluster -->
-        <div class="flex items-center gap-2">
-            <!-- Outbox badge -->
-            <div id="outbox-badge" class="hidden items-center gap-1 px-2.5 py-1 bg-orange-50 text-orange-600 border border-orange-200 rounded-full text-[10px] font-bold cursor-pointer hover:bg-orange-100 transition" onclick="window.app.openOutboxViewer()">
-                <i data-lucide="upload-cloud" class="w-3 h-3"></i>
+        <div style="display:flex;align-items:center;gap:8px;">
+            <div id="outbox-badge" class="hidden" onclick="window.app.openOutboxViewer()" style="display:none;align-items:center;gap:4px;padding:3px 10px;background:#fff7ed;color:#c2410c;border:1px solid #fed7aa;border-radius:999px;font-size:10px;font-weight:700;cursor:pointer;">
+                <i data-lucide="upload-cloud" style="width:12px;height:12px;"></i>
                 <span id="outbox-count">0</span>
             </div>
-            <!-- Connection dot -->
-            <div id="status-indicator" class="w-2 h-2 rounded-full bg-slate-300 transition-colors duration-300 flex-none"></div>
-            <!-- Settings -->
-            <button onclick="window.app.toggleSettings()"
-                class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition">
-                <i data-lucide="settings" class="w-4 h-4"></i>
+            <div id="status-indicator" style="width:7px;height:7px;border-radius:50%;background:#94a3b8;flex-shrink:0;transition:background .3s;"></div>
+            <button onclick="window.app.toggleSettings()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px;border:none;background:none;color:var(--text-2);cursor:pointer;" onmouseover="this.style.background='var(--surface-3)'" onmouseout="this.style.background='none'">
+                <i data-lucide="settings" style="width:16px;height:16px;"></i>
             </button>
         </div>
     </header>
 
-    <!-- MAIN CONTENT AREA -->
-    <main class="flex-1 relative overflow-hidden" style="background:var(--surface-3);">
+    <!-- CAPTURE BAR — Camera button + sensor strip, always visible -->
+    <div id="capture-bar">
+        <!-- Camera: tap = live camera, long-press = gallery -->
+        <button id="btn-camera-main"
+            onclick="window.app.openCamera()"
+            oncontextmenu="event.preventDefault(); window.app._triggerGallery();"
+            title="Tap: Camera  |  Long-press: Gallery">
+            <i data-lucide="camera" style="width:18px;height:18px;"></i>
+            Camera
+        </button>
+        <input type="file" id="camera-input"  accept="image/*" capture="environment" style="display:none;">
+        <input type="file" id="gallery-input" accept="image/*" multiple style="display:none;">
 
-        <!-- TAB 1: INSPECT -->
-        <div id="tab-inspect" class="tab-content active p-4 space-y-3">
-
-            <!-- LEFT COLUMN: controls -->
-            <div class="inspect-left space-y-4">
-                <!-- Sensor status bar -->
-                <div class="bg-white rounded-xl border flex divide-x overflow-hidden" style="border-color:var(--border); box-shadow:var(--shadow-sm);">
-                    <button onclick="window.app.requestGPS()" class="flex-1 px-3 py-2.5 flex flex-col items-center hover:bg-slate-50 transition active:bg-slate-100">
-                        <span class="section-label mb-1">GPS</span>
-                        <span id="gps-val" class="text-[11px] font-mono font-semibold text-slate-700 truncate max-w-full">Waiting…</span>
-                    </button>
-                    <button onclick="window.app.requestCompass()" class="flex-1 px-3 py-2.5 flex flex-col items-center hover:bg-slate-50 transition active:bg-slate-100">
-                        <span class="section-label mb-1">Heading</span>
-                        <div class="flex items-center gap-1">
-                            <svg id="compass-icon" class="w-3.5 h-3.5 transition-transform duration-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <circle cx="12" cy="12" r="10" stroke="#e2e8f0"/>
-                                <path d="M12 2L15 12H9Z" fill="#ef4444" stroke="none"/>
-                                <path d="M12 22L9 12H15Z" fill="#94a3b8" stroke="none"/>
-                            </svg>
-                            <span id="compass-val" class="text-[11px] font-mono font-semibold text-slate-700">Off</span>
-                        </div>
-                    </button>
-                    <button onclick="window.app.retryWeather()" class="flex-1 px-3 py-2.5 flex flex-col items-center hover:bg-slate-50 transition active:bg-slate-100">
-                        <span class="section-label mb-1">Weather</span>
-                        <span id="wx-val" class="text-[11px] font-semibold text-slate-700 truncate max-w-full">--</span>
-                    </button>
-                </div>
-
-                <!-- Capture section -->
-                <div>
-                    <div class="flex justify-between items-center mb-3">
-                        <span class="section-label">Capture</span>
-                        <label class="flex items-center gap-1.5 text-[11px] text-slate-500 cursor-pointer select-none">
-                            <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 accent-blue-600 rounded" onchange="window.app.updateOverlayStatus()">
-                            <span id="overlay-status">Overlay Data</span>
-                        </label>
-                    </div>
-                    <div class="grid grid-cols-2 gap-3">
-                        <!-- Camera -->
-                        <div class="flex flex-col gap-2">
-                            <button onclick="window.app.openCamera()" class="capture-tile">
-                                <div class="capture-icon bg-blue-600 text-white shadow-sm">
-                                    <i data-lucide="camera" class="w-5 h-5"></i>
-                                </div>
-                                <span class="text-[13px] font-semibold text-slate-800">Camera</span>
-                                <span class="text-[10px] text-slate-400 mt-0.5">Live photo</span>
-                            </button>
-                            <input type="file" id="camera-input" accept="image/*" capture="environment" class="hidden">
-                        </div>
-                        <!-- Gallery -->
-                        <label class="capture-tile">
-                            <div class="capture-icon bg-indigo-600 text-white shadow-sm">
-                                <i data-lucide="image" class="w-5 h-5"></i>
-                            </div>
-                            <span class="text-[13px] font-semibold text-slate-800">Gallery</span>
-                            <span class="text-[10px] text-slate-400 mt-0.5">Import photos</span>
-                            <input type="file" id="gallery-input" accept="image/*" multiple class="hidden">
-                        </label>
-                        <!-- Sketch -->
-                        <button onclick="window.app.openSketch()" class="capture-tile">
-                            <div class="capture-icon bg-violet-600 text-white shadow-sm">
-                                <i data-lucide="pen-tool" class="w-5 h-5"></i>
-                            </div>
-                            <span class="text-[13px] font-semibold text-slate-800">Sketch</span>
-                            <span class="text-[10px] text-slate-400 mt-0.5">Draw & annotate</span>
-                        </button>
-                        <!-- Notes -->
-                        <button onclick="window.app.openNotes()" class="capture-tile">
-                            <div class="capture-icon bg-emerald-600 text-white shadow-sm">
-                                <i data-lucide="file-text" class="w-5 h-5"></i>
-                            </div>
-                            <span class="text-[13px] font-semibold text-slate-800">Notes</span>
-                            <span class="text-[10px] text-slate-400 mt-0.5">Field observations</span>
-                        </button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- RIGHT COLUMN: recent entries panel (desktop only) -->
-            <div class="inspect-right hidden md:flex flex-col overflow-hidden bg-white">
-                <div class="flex justify-between items-center px-6 py-4 border-b border-slate-200 flex-none">
-                    <h2 class="font-bold text-slate-800">Recent Entries <span id="inspect-recent-count" class="text-xs font-normal text-slate-400"></span></h2>
-                    <button onclick="window.app.switchTab('report')" class="text-xs font-bold text-blue-600 hover:text-blue-800">View All →</button>
-                </div>
-                <div id="inspect-recent-feed" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50"></div>
-            </div>
+        <!-- Sensor strip -->
+        <div id="sensor-strip">
+            <button class="sensor-pill" onclick="window.app.requestGPS()">
+                <span class="lbl">GPS</span>
+                <span id="gps-val">Waiting…</span>
+            </button>
+            <button class="sensor-pill" onclick="window.app.requestCompass()">
+                <span class="lbl">Heading</span>
+                <span style="display:flex;align-items:center;gap:3px;">
+                    <svg id="compass-icon" style="width:11px;height:11px;flex-shrink:0;transition:transform .5s;" viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="10" stroke="#e2e8f0" stroke-width="2"/>
+                        <path d="M12 2L15 12H9Z" fill="#ef4444"/>
+                        <path d="M12 22L9 12H15Z" fill="#94a3b8"/>
+                    </svg>
+                    <span id="compass-val" style="font-size:10px;font-weight:600;color:var(--text-1);">Off</span>
+                </span>
+            </button>
+            <button class="sensor-pill" onclick="window.app.retryWeather()">
+                <span class="lbl">Weather</span>
+                <span id="wx-val">--</span>
+            </button>
         </div>
+    </div>
 
-        <!-- TAB 2: REPORT -->
-        <div id="tab-report" class="tab-content h-full bg-white">
+    <!-- MAIN CONTENT AREA -->
+    <main style="flex:1;position:relative;overflow:hidden;background:var(--surface-2);">
+
+        <!-- TAB 1: LOG (was Report) -->
+        <div id="tab-report" class="tab-content active" style="background:var(--surface);">
             <div class="flex flex-col h-full md:contents">
 
                 <!-- LEFT: list -->
@@ -374,7 +374,7 @@
                         </div>
                     </div>
                     <div id="report-feed" class="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50 pb-20"></div>
-                    <!-- Export FAB + jump buttons -->
+                    <!-- Scroll jump buttons + capture FAB -->
                     <div class="absolute bottom-4 right-4 md:bottom-4 md:right-auto md:left-[calc(420px+1rem)] z-20 flex flex-col items-end gap-2">
                         <div class="flex flex-col gap-1">
                             <button onclick="document.getElementById('report-feed').scrollTo({top:0,behavior:'smooth'})" class="bg-white border border-slate-200 text-slate-500 hover:text-blue-600 p-1.5 rounded-lg shadow-sm transition" title="Jump to top">
@@ -384,11 +384,16 @@
                                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
                             </button>
                         </div>
-                        <button onclick="document.getElementById('export-modal').classList.remove('hidden')" class="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 shadow-lg flex items-center gap-2 pr-5 transition transform active:scale-95">
-                            <i data-lucide="download" class="w-5 h-5"></i>
-                            <span class="text-sm font-bold">Export</span>
+                        <!-- Export -->
+                        <button onclick="document.getElementById('export-modal').classList.remove('hidden')" class="bg-white border border-slate-200 text-slate-600 hover:text-blue-600 rounded-full p-2.5 shadow-sm flex items-center gap-1.5 pr-4 transition transform active:scale-95 text-sm font-bold">
+                            <i data-lucide="download" class="w-4 h-4"></i> Export
                         </button>
                     </div>
+
+                    <!-- Capture FAB — "+" opens action sheet -->
+                    <button id="capture-fab" onclick="window.app.openCaptureSheet()" title="Capture">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    </button>
                 </div>
 
                 <!-- RIGHT: desktop preview panel -->
@@ -433,7 +438,7 @@
         </div>
 
         <!-- TAB 3: MAP -->
-        <div id="tab-map" class="tab-content h-full relative">
+        <div id="tab-map" class="tab-content" style="position:relative;">
             <div id="map-container" class="bg-slate-200"></div>
             <button onclick="window.app.centerMap()" class="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-md z-[400] text-slate-700 hover:text-blue-600">
                 <i data-lucide="crosshair" class="w-6 h-6"></i>
@@ -441,7 +446,7 @@
         </div>
 
         <!-- TAB 4: FILES -->
-        <div id="tab-files" class="tab-content p-4">
+        <div id="tab-files" class="tab-content" style="padding:16px;">
             <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
                 <div class="p-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
                     <h3 class="text-sm font-bold text-slate-700">Raw Storage</h3>
@@ -456,7 +461,7 @@
         </div>
 
         <!-- TAB 5: PLANS -->
-        <div id="tab-plans" class="tab-content p-4 flex flex-col gap-3">
+        <div id="tab-plans" class="tab-content" style="padding:16px;gap:12px;">
 
             <!-- Header -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-none">
@@ -510,35 +515,25 @@
 
     </main>
 
-    <!-- BOTTOM NAVIGATION -->
-    <nav class="bg-white flex justify-around items-stretch pb-safe z-30 flex-none"
-         style="height:60px; border-top:1px solid var(--border); box-shadow:0 -1px 0 var(--border);">
-        <button onclick="window.app.switchTab('inspect')" id="nav-inspect"
-            class="nav-item active flex flex-col items-center justify-center flex-1 text-blue-600 gap-1 transition-colors">
-            <i data-lucide="camera" class="w-5 h-5"></i>
-            <span class="text-[10px] font-semibold">Inspect</span>
+    <!-- BOTTOM NAVIGATION — 4 tabs (Inspect replaced by capture bar) -->
+    <nav style="background:var(--surface);border-top:1px solid var(--border);display:flex;height:60px;padding-bottom:env(safe-area-inset-bottom);flex-shrink:0;z-index:30;">
+        <button id="nav-report" onclick="window.app.switchTab('report')" class="nav-btn active" style="position:relative;">
+            <i data-lucide="clipboard-list" style="width:20px;height:20px;"></i>
+            <span>Log</span>
+            <span id="nav-report-badge" style="display:none;position:absolute;top:8px;right:12px;background:var(--blue);color:white;font-size:8px;font-weight:700;padding:1px 5px;border-radius:999px;line-height:1.4;"></span>
         </button>
-        <button onclick="window.app.switchTab('report')" id="nav-report"
-            class="nav-item relative flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
-            <i data-lucide="clipboard-list" class="w-5 h-5"></i>
-            <span class="text-[10px] font-semibold">Log</span>
-            <span id="nav-report-badge" class="hidden absolute top-1.5 right-4 bg-blue-600 text-white text-[8px] font-bold rounded-full px-1.5 py-0.5 leading-none"></span>
+        <button id="nav-map" onclick="window.app.switchTab('map')" class="nav-btn">
+            <i data-lucide="map" style="width:20px;height:20px;"></i>
+            <span>Map</span>
         </button>
-        <button onclick="window.app.switchTab('map')" id="nav-map"
-            class="nav-item flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
-            <i data-lucide="map" class="w-5 h-5"></i>
-            <span class="text-[10px] font-semibold">Map</span>
+        <button id="nav-files" onclick="window.app.switchTab('files')" class="nav-btn">
+            <i data-lucide="hard-drive" style="width:20px;height:20px;"></i>
+            <span>Files</span>
         </button>
-        <button onclick="window.app.switchTab('files')" id="nav-files"
-            class="nav-item flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
-            <i data-lucide="hard-drive" class="w-5 h-5"></i>
-            <span class="text-[10px] font-semibold">Files</span>
-        </button>
-        <button onclick="window.app.switchTab('plans')" id="nav-plans"
-            class="nav-item relative flex flex-col items-center justify-center flex-1 text-slate-400 gap-1 hover:text-blue-600 transition-colors">
-            <i data-lucide="file-text" class="w-5 h-5"></i>
-            <span class="text-[10px] font-semibold">Plans</span>
-            <span id="nav-plans-badge" class="hidden absolute top-1.5 right-2 bg-orange-500 text-white text-[8px] font-bold rounded-full px-1.5 py-0.5 leading-none"></span>
+        <button id="nav-plans" onclick="window.app.switchTab('plans')" class="nav-btn" style="position:relative;">
+            <i data-lucide="file-text" style="width:20px;height:20px;"></i>
+            <span>Plans</span>
+            <span id="nav-plans-badge" style="display:none;position:absolute;top:8px;right:8px;background:#f97316;color:white;font-size:8px;font-weight:700;padding:1px 5px;border-radius:999px;line-height:1.4;"></span>
         </button>
     </nav>
 
@@ -851,6 +846,115 @@
                 <button onclick="window.app.closeCaptionModal()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
                 <button onclick="window.app.confirmUpload()" id="btn-save-upload" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Save</button>
             </div>
+        </div>
+    </div>
+
+    <!-- CAPTURE ACTION SHEET ─────────────────────────────────────────── -->
+    <div id="capture-sheet" style="display:none;" onclick="if(event.target===this||event.target.id==='capture-sheet-backdrop')window.app.closeCaptureSheet()">
+        <div id="capture-sheet-backdrop"></div>
+        <div id="capture-sheet-panel">
+            <div class="sheet-handle"></div>
+            <p style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Add to Project</p>
+
+            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app._triggerGallery();">
+                <div class="sheet-action-icon" style="background:#eff6ff;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                </div>
+                <div class="sheet-action-text">
+                    <strong>Gallery</strong>
+                    <span>Import photos from camera roll</span>
+                </div>
+            </button>
+
+            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app.openSketch();">
+                <div class="sheet-action-icon" style="background:#f5f3ff;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </div>
+                <div class="sheet-action-text">
+                    <strong>Sketch</strong>
+                    <span>Draw a field sketch or annotation</span>
+                </div>
+            </button>
+
+            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app.openNotes();">
+                <div class="sheet-action-icon" style="background:#f0fdf4;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                </div>
+                <div class="sheet-action-text">
+                    <strong>Notes</strong>
+                    <span>Add a typed field observation</span>
+                </div>
+            </button>
+
+            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app.openNotepad();">
+                <div class="sheet-action-icon" style="background:#f0f9ff;">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                </div>
+                <div class="sheet-action-text">
+                    <strong>Note Pad</strong>
+                    <span>Open handwritten scratch pad</span>
+                </div>
+            </button>
+        </div>
+    </div>
+
+    <!-- MODAL: NOTE PAD ─────────────────────────────────────────────── -->
+    <div id="modal-notepad" class="fixed inset-0 z-[60] hidden flex flex-col fade-in" style="background:#f5f0e8;">
+
+        <!-- Toolbar -->
+        <div id="notepad-toolbar" style="background:white;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;padding:8px 12px;flex-shrink:0;z-index:2;">
+            <button onclick="window.app.closeNotepad()" style="width:32px;height:32px;display:flex;align-items:center;justify-content:center;border:none;background:none;color:#64748b;cursor:pointer;border-radius:8px;font-size:18px;" title="Close">✕</button>
+
+            <div style="width:1px;height:20px;background:#e2e8f0;"></div>
+
+            <!-- Pen color -->
+            <input type="color" id="np-color" value="#1e3a5f"
+                style="width:28px;height:28px;border-radius:6px;border:1px solid #e2e8f0;padding:2px;cursor:pointer;background:none;"
+                title="Pen color">
+
+            <!-- Pen size -->
+            <input type="range" id="np-size" min="1" max="12" value="3"
+                style="width:70px;accent-color:#0369a1;" title="Pen size">
+
+            <!-- Palm rejection -->
+            <button onclick="window.app.toggleNotepadPalm()" id="np-palm-btn"
+                style="padding:4px 8px;border-radius:6px;border:1px solid #e2e8f0;background:none;font-size:11px;font-weight:600;color:#64748b;cursor:pointer;"
+                title="Palm rejection">🖐</button>
+
+            <!-- Eraser -->
+            <button onclick="window.app.toggleNotepadEraser()" id="np-eraser-btn"
+                style="padding:4px 8px;border-radius:6px;border:1px solid #e2e8f0;background:none;font-size:11px;font-weight:600;color:#64748b;cursor:pointer;"
+                title="Eraser (or hold S Pen barrel button)">⌫ Erase</button>
+
+            <div style="flex:1;"></div>
+
+            <!-- Page indicator -->
+            <span id="np-page-indicator" style="font-size:11px;font-weight:600;color:#94a3b8;font-family:monospace;"></span>
+
+            <!-- Export current page -->
+            <button onclick="window.app.exportNotepadPage()" title="Save page to project log"
+                style="padding:5px 10px;border-radius:8px;border:none;background:#0369a1;color:white;font-size:11px;font-weight:700;cursor:pointer;">
+                Save Page
+            </button>
+        </div>
+
+        <!-- Page counter overlay (shows while scrolling, fades) -->
+        <div id="np-scroll-indicator" style="display:none;position:absolute;top:60px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);color:white;font-size:12px;font-weight:700;padding:4px 14px;border-radius:999px;z-index:10;pointer-events:none;font-family:monospace;"></div>
+
+        <!-- Scrollable paper container — finger scrolls this -->
+        <div id="np-scroll" style="flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative;">
+            <!-- Pages render here as stacked divs, each containing a canvas pair -->
+            <div id="np-pages" style="position:relative;width:100%;"></div>
+
+            <!-- Add-page sentinel (observed by IntersectionObserver) -->
+            <div id="np-sentinel" style="height:1px;"></div>
+        </div>
+
+        <!-- Bottom bar -->
+        <div style="background:white;border-top:1px solid #e2e8f0;display:flex;align-items:center;justify-content:space-between;padding:8px 16px;flex-shrink:0;padding-bottom:max(8px,env(safe-area-inset-bottom));">
+            <button onclick="window.app.notepadAddPage()" style="font-size:12px;font-weight:600;color:#0369a1;background:none;border:none;cursor:pointer;">+ New Page</button>
+            <button onclick="window.app.notepadJumpToday()" style="font-size:12px;font-weight:600;color:#64748b;background:none;border:none;cursor:pointer;">Jump to Today</button>
+            <button onclick="window.app.notepadClearPage()" style="font-size:12px;font-weight:600;color:#ef4444;background:none;border:none;cursor:pointer;">Clear Page</button>
         </div>
     </div>
 
@@ -1243,6 +1347,13 @@
                                 <p class="text-[10px] text-slate-400">Map showing all photo locations with numbered markers</p>
                             </div>
                         </label>
+                        <label class="flex items-center gap-2 cursor-pointer col-span-2">
+                            <input type="checkbox" id="pdf-sec-notepad" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
+                            <div>
+                                <span class="text-sm text-slate-700">Working Notes (Note Pad)</span>
+                                <p class="text-[10px] text-slate-400">Includes saved notepad pages as a working notes appendix</p>
+                            </div>
+                        </label>
                     </div>
                 </div>
 
@@ -1512,7 +1623,7 @@
             // Layout
             orientation: 'portrait', photosPerPage: 2, sortOrder: 'asc', accentColor: '#2563eb',
             // Sections
-            secIndex: true, secNotes: true, secPhotos: true, secSketches: true, secPlans: true, secPlansSideBySide: false, secMap: true,
+            secIndex: true, secNotes: true, secPhotos: true, secSketches: true, secPlans: true, secPlansSideBySide: false, secMap: true, secNotepad: false,
             // Photo options
             rawPhotos: false, showGPS: true, showWeather: true, showHeading: true,
             // Header/footer
@@ -1797,18 +1908,22 @@
                 const failed = items.filter(i => i.status === 'failed');
 
                 if (items.length === 0) {
-                    badge.classList.add('hidden');
+                    badge.style.display = 'none';
                     return;
                 }
 
-                badge.classList.remove('hidden');
-                // Show failed items in red, pending in orange
+                // Show badge
+                badge.style.display = 'flex';
                 if (failed.length > 0) {
-                    badge.className = 'flex items-center gap-1 px-2 py-1 bg-red-100 text-red-700 rounded-full text-[10px] font-bold cursor-pointer';
+                    badge.style.background = '#fef2f2';
+                    badge.style.color = '#b91c1c';
+                    badge.style.border = '1px solid #fecaca';
                     badge.innerHTML = `<span>⚠</span> <span id="outbox-count">${items.length}</span>`;
                 } else {
-                    badge.className = 'flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-[10px] font-bold animate-pulse cursor-pointer';
-                    badge.innerHTML = `<svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> <span id="outbox-count">${pending.length}</span>`;
+                    badge.style.background = '#fff7ed';
+                    badge.style.color = '#c2410c';
+                    badge.style.border = '1px solid #fed7aa';
+                    badge.innerHTML = `<svg style="width:12px;height:12px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg> <span id="outbox-count">${pending.length}</span>`;
                 }
 
                 // Tooltip: age of oldest item
@@ -1834,9 +1949,15 @@
                 this.initSensors();
                 this.bindEvents();
                 lucide.createIcons();
+                this.initCaptureBar();
                 // #9 restore last active tab
                 const lastTab = localStorage.getItem('fp_last_tab');
-                if (lastTab && lastTab !== 'inspect') this.switchTab(lastTab);
+                // Default to Log tab (formerly Inspect); skip if stored tab is the old 'inspect'
+                if (lastTab && lastTab !== 'inspect') {
+                    this.switchTab(lastTab);
+                } else {
+                    this.switchTab('report');
+                }
                 window.addEventListener('online', () => this.updateConnectionStatus(true));
                 window.addEventListener('offline', () => this.updateConnectionStatus(false));
                 this.updateConnectionStatus(navigator.onLine);
@@ -2211,6 +2332,12 @@
                         this.syncProjectList();
                         this.listenToSharedProjects();
                         this.initPlans();
+                        // Restore notepad badge
+                        try {
+                            const npMeta = JSON.parse(localStorage.getItem('np_meta_' + state.project) || '[]');
+                            const npBadge = $('notepad-page-badge');
+                            if (npBadge && npMeta.length > 1) npBadge.innerText = npMeta.length + ' pages';
+                        } catch(e) {}
                     }
                 });
                 const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -2319,15 +2446,9 @@
 
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
                 tabEl.classList.add('active');
-                document.querySelectorAll('.nav-item').forEach(el => {
-                    el.classList.remove('text-blue-600', 'active');
-                    el.classList.add('text-slate-400');
-                });
+                document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
                 const nav = $(`nav-${id}`);
-                if (nav) {
-                    nav.classList.add('text-blue-600', 'active');
-                    nav.classList.remove('text-slate-400');
-                }
+                if (nav) nav.classList.add('active');
                 localStorage.setItem('fp_last_tab', id); // #9 remember last tab
                 if(id === 'map') {
                     setTimeout(() => {
@@ -4986,7 +5107,8 @@
                     'pdf-sec-photos': 'secPhotos', 'pdf-sec-sketches': 'secSketches',
                     'pdf-sec-plans': 'secPlans',
                     'pdf-sec-plans-sidebyside': 'secPlansSideBySide',
-                    'pdf-sec-map': 'secMap'
+                    'pdf-sec-map': 'secMap',
+                    'pdf-sec-notepad': 'secNotepad'
                 };
                 Object.entries(checks).forEach(([id, key]) => {
                     const el = document.getElementById(id); if(el) el.checked = !!o[key];
@@ -5007,7 +5129,8 @@
                     'pdf-sec-photos': 'secPhotos', 'pdf-sec-sketches': 'secSketches',
                     'pdf-sec-plans': 'secPlans',
                     'pdf-sec-plans-sidebyside': 'secPlansSideBySide',
-                    'pdf-sec-map': 'secMap'
+                    'pdf-sec-map': 'secMap',
+                    'pdf-sec-notepad': 'secNotepad'
                 };
                 Object.entries(checks).forEach(([id, key]) => {
                     const el = document.getElementById(id); if(el) o[key] = el.checked;
@@ -5363,6 +5486,14 @@
                                     }
                                 }
                             }
+                        }
+                    }
+
+                    // ── WORKING NOTES (NOTEPAD) ─────────────────────────────
+                    if (o.secNotepad) {
+                        const npItems = sortedItems.filter(i => i.subtype === 'notepad');
+                        if (npItems.length > 0) {
+                            await addImagesSection('Working Notes — Note Pad', npItems);
                         }
                     }
 
@@ -6726,6 +6857,550 @@
                 return canvas;
             }
 
+
+            // ══════════════════════════════════════════════════════════════
+            // NOTE PAD MODULE
+            // Virtual-scroll architecture: each "page" is a fixed-height
+            // strip. Finger scrolls the container; pen draws on a transparent
+            // canvas overlaid on the visible area. Pages are persisted to
+            // IndexedDB individually so RAM usage stays flat regardless of
+            // how many pages exist.
+            // ══════════════════════════════════════════════════════════════
+
+            // ── Constants ──────────────────────────────────────────────────
+            _NP_PAGE_HEIGHT = 1100;  // px per page (roughly one screen)
+            _NP_LINE_SPACING = 32;   // college rule
+            _NP_MARGIN_LEFT  = 64;   // red margin line position
+
+            // ── State ──────────────────────────────────────────────────────
+            _npPages        = [];    // array of { id, date, dataURL|null }
+            _npCurrentPage  = 0;     // index currently being drawn on
+            _npErasing      = false;
+            _npBarrelErasing= false;
+            _npPalmRej      = false;
+            _npDrawing      = false;
+            _npPointerAbort = null;
+            _npScrollTimer  = null;
+
+            // ── Open ───────────────────────────────────────────────────────
+            async openNotepad() {
+                $('modal-notepad').classList.remove('hidden');
+                $('modal-notepad').style.display = 'flex';
+                await this._npLoadState();
+                this._npRenderPages();
+                this._npBindPointers();
+                this._npUpdateIndicator();
+                this._npBindScroll();
+                lucide.createIcons();
+            }
+
+            // ── Persistence key ────────────────────────────────────────────
+            _npKey(pageIdx) {
+                return 'np_' + state.project.replace(/[^a-z0-9]/gi,'_') + '_p' + pageIdx;
+            }
+
+            async _npLoadState() {
+                // Load page metadata from localStorage (lightweight — no pixel data)
+                const meta = JSON.parse(localStorage.getItem('np_meta_' + state.project) || '[]');
+                if (meta.length === 0) {
+                    // First open — create one page stamped today
+                    this._npPages = [{ id: 0, date: new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'}) }];
+                } else {
+                    this._npPages = meta;
+                }
+            }
+
+            _npSaveMeta() {
+                localStorage.setItem('np_meta_' + state.project, JSON.stringify(
+                    this._npPages.map(p => ({ id: p.id, date: p.date }))
+                ));
+                // Update tile badge
+                const badge = $('notepad-page-badge');
+                if (badge) badge.innerText = this._npPages.length > 1 ? this._npPages.length + ' pages' : '';
+            }
+
+            async _npSavePage(idx) {
+                const canvas = $('np-draw-' + idx);
+                if (!canvas) return;
+                // Only save if canvas has content
+                const ctx = canvas.getContext('2d');
+                const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+                const hasContent = data.some(v => v !== 0);
+                const key = this._npKey(idx);
+                if (hasContent) {
+                    await this.offlineMgr.saveMarkup(key, canvas.toDataURL());
+                }
+            }
+
+            async _npLoadPage(idx) {
+                const key = this._npKey(idx);
+                return await this.offlineMgr.loadMarkup(key);
+            }
+
+            // ── Render all page strips ──────────────────────────────────────
+            _npRenderPages() {
+                const container = $('np-pages');
+                container.innerHTML = '';
+                const W = $('np-scroll').clientWidth || window.innerWidth;
+
+                this._npPages.forEach((pg, idx) => {
+                    const pageDiv = document.createElement('div');
+                    pageDiv.id = 'np-page-' + idx;
+                    pageDiv.style.cssText = `position:relative;width:${W}px;height:${this._NP_PAGE_HEIGHT}px;flex-shrink:0;`;
+
+                    // Background canvas (ruled lines)
+                    const bgCanvas = document.createElement('canvas');
+                    bgCanvas.width  = W;
+                    bgCanvas.height = this._NP_PAGE_HEIGHT;
+                    bgCanvas.style.cssText = 'position:absolute;top:0;left:0;touch-action:none;';
+                    bgCanvas.id = 'np-bg-' + idx;
+                    this._npDrawRuled(bgCanvas, pg.date, idx);
+
+                    // Drawing canvas (transparent overlay)
+                    const drawCanvas = document.createElement('canvas');
+                    drawCanvas.width  = W;
+                    drawCanvas.height = this._NP_PAGE_HEIGHT;
+                    drawCanvas.style.cssText = 'position:absolute;top:0;left:0;touch-action:none;cursor:crosshair;';
+                    drawCanvas.id = 'np-draw-' + idx;
+
+                    // Load saved strokes async
+                    this._npLoadPage(idx).then(dataURL => {
+                        if (dataURL) {
+                            const img = new Image();
+                            img.onload = () => drawCanvas.getContext('2d').drawImage(img, 0, 0);
+                            img.src = dataURL;
+                        }
+                    });
+
+                    // Page number label (bottom-right of bg)
+                    const lbl = document.createElement('div');
+                    lbl.style.cssText = 'position:absolute;bottom:12px;right:16px;font-size:11px;color:#b0c4d8;font-family:monospace;pointer-events:none;';
+                    lbl.innerText = idx + 1;
+
+                    pageDiv.appendChild(bgCanvas);
+                    pageDiv.appendChild(drawCanvas);
+                    pageDiv.appendChild(lbl);
+                    container.appendChild(pageDiv);
+                });
+
+                this._npUpdateIndicator();
+            }
+
+            // ── Draw college-ruled background ──────────────────────────────
+            _npDrawRuled(canvas, dateLabel, pageIdx) {
+                const ctx = canvas.getContext('2d');
+                const w = canvas.width, h = canvas.height;
+                const S = this._NP_LINE_SPACING;
+                const ML = this._NP_MARGIN_LEFT;
+
+                // Paper background — warm off-white
+                ctx.fillStyle = '#fdfcf7';
+                ctx.fillRect(0, 0, w, h);
+
+                ctx.save();
+                ctx.translate(0.5, 0.5); // pixel-snap for crisp lines
+
+                // Horizontal ruled lines
+                ctx.strokeStyle = '#c8d8f0';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                for (let y = S * 2; y < h; y += S) {
+                    ctx.moveTo(0, y); ctx.lineTo(w, y);
+                }
+                ctx.stroke();
+
+                // Red margin line
+                ctx.strokeStyle = '#f0b8b8';
+                ctx.lineWidth = 1.5;
+                ctx.beginPath();
+                ctx.moveTo(ML, 0); ctx.lineTo(ML, h);
+                ctx.stroke();
+
+                // Page break line at bottom
+                ctx.strokeStyle = '#dde8f5';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 4]);
+                ctx.beginPath();
+                ctx.moveTo(0, h - 1); ctx.lineTo(w, h - 1);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.restore();
+
+                // Date header (first page of each day)
+                if (dateLabel) {
+                    ctx.font = '500 13px Inter, Arial, sans-serif';
+                    ctx.fillStyle = '#b0c4d8';
+                    ctx.textAlign = 'left';
+                    ctx.fillText(dateLabel, ML + 8, S + 2);
+                }
+            }
+
+            // ── Pointer binding (pen draws, touch scrolls) ─────────────────
+            _npBindPointers() {
+                if (this._npPointerAbort) this._npPointerAbort.abort();
+                this._npPointerAbort = new AbortController();
+                const sig = { signal: this._npPointerAbort.signal };
+
+                const scroll = $('np-scroll');
+
+                // Barrel button detection
+                const isBarrel = (e) => e.pointerType === 'pen' &&
+                    ((e.buttons & 32) !== 0 || e.buttons === 2 || e.button === 5);
+
+                const enterBarrel = () => {
+                    if (this._npBarrelErasing) return;
+                    this._npBarrelErasing = true;
+                    $('np-eraser-btn').style.background = '#fef2f2';
+                    $('np-eraser-btn').style.color = '#dc2626';
+                };
+                const exitBarrel = () => {
+                    if (!this._npBarrelErasing) return;
+                    this._npBarrelErasing = false;
+                    if (!this._npErasing) {
+                        $('np-eraser-btn').style.background = 'none';
+                        $('np-eraser-btn').style.color = '#64748b';
+                    }
+                };
+
+                // Find which page a canvas point belongs to
+                const getPageCanvas = (e) => {
+                    const scrollTop = scroll.scrollTop;
+                    const pageIdx = Math.floor((scrollTop + e.clientY - scroll.getBoundingClientRect().top) / this._NP_PAGE_HEIGHT);
+                    const clampedIdx = Math.max(0, Math.min(pageIdx, this._npPages.length - 1));
+                    return { idx: clampedIdx, canvas: $('np-draw-' + clampedIdx) };
+                };
+
+                const toCanvasCoords = (e, canvas) => {
+                    const rect = canvas.getBoundingClientRect();
+                    return {
+                        x: (e.clientX - rect.left) * (canvas.width / rect.width),
+                        y: (e.clientY - rect.top)  * (canvas.height / rect.height)
+                    };
+                };
+
+                // Only pen and mouse draw — touch is handled by native scroll
+                scroll.addEventListener('pointerdown', (e) => {
+                    if (e.pointerType === 'touch') return;
+                    if (this._npPalmRej && e.pointerType !== 'pen') return;
+
+                    if (isBarrel(e)) enterBarrel();
+                    const { idx, canvas } = getPageCanvas(e);
+                    if (!canvas) return;
+                    canvas.setPointerCapture(e.pointerId);
+
+                    this._npCurrentPage = idx;
+                    this._npDrawing = true;
+
+                    const ctx = canvas.getContext('2d');
+                    const pos = toCanvasCoords(e, canvas);
+                    const erasing = this._npErasing || this._npBarrelErasing;
+
+                    // Push undo state
+                    if (!this._npUndoStack) this._npUndoStack = [];
+                    this._npUndoStack.push({ idx, data: canvas.toDataURL() });
+                    if (this._npUndoStack.length > 20) this._npUndoStack.shift();
+
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+                    this._npActiveCanvas = canvas;
+                    this._npActiveCtx    = ctx;
+                    this._npEraseMode    = erasing;
+                }, { passive: false, ...sig });
+
+                scroll.addEventListener('pointermove', (e) => {
+                    if (e.pointerType === 'touch') return;
+                    if (this._npPalmRej && e.pointerType !== 'pen') return;
+                    if (!this._npDrawing || !this._npActiveCanvas) return;
+
+                    if (e.pointerType === 'pen') {
+                        if (isBarrel(e)) enterBarrel(); else exitBarrel();
+                    }
+
+                    const canvas  = this._npActiveCanvas;
+                    const ctx     = this._npActiveCtx;
+                    const pos     = toCanvasCoords(e, canvas);
+                    const erasing = this._npEraseMode || this._npBarrelErasing;
+                    const size    = parseFloat($('np-size').value) || 3;
+                    const pressure = (e.pointerType === 'pen' && e.pressure > 0) ? e.pressure : 0.8;
+
+                    if (erasing) {
+                        ctx.globalCompositeOperation = 'destination-out';
+                        ctx.strokeStyle = 'rgba(0,0,0,1)';
+                        ctx.lineWidth = Math.max(20, size * 5);
+                        ctx.globalAlpha = 1;
+                    } else {
+                        ctx.globalCompositeOperation = 'source-over';
+                        ctx.strokeStyle = $('np-color').value;
+                        ctx.lineWidth = Math.max(1, size * (0.4 + pressure * 0.6));
+                        ctx.globalAlpha = 1;
+                    }
+                    ctx.lineTo(pos.x, pos.y);
+                    ctx.stroke();
+                    ctx.beginPath(); ctx.moveTo(pos.x, pos.y);
+                }, { passive: false, ...sig });
+
+                scroll.addEventListener('pointerup', (e) => {
+                    if (e.pointerType === 'touch') return;
+                    if (e.pointerType === 'pen') exitBarrel();
+                    if (this._npActiveCtx) {
+                        this._npActiveCtx.globalCompositeOperation = 'source-over';
+                        this._npActiveCtx.globalAlpha = 1;
+                        this._npActiveCtx.beginPath();
+                    }
+                    this._npDrawing = false;
+                    // Auto-save this page after stroke
+                    if (this._npCurrentPage !== undefined) {
+                        this._npSavePage(this._npCurrentPage);
+                    }
+                    this._npActiveCanvas = null;
+                    this._npActiveCtx    = null;
+                }, { passive: true, ...sig });
+
+                scroll.addEventListener('pointercancel', (e) => {
+                    if (e.pointerType === 'pen') exitBarrel();
+                    this._npDrawing = false;
+                    this._npActiveCanvas = null;
+                    this._npActiveCtx    = null;
+                }, { passive: true, ...sig });
+
+                // Block browser pinch zoom on the draw area
+                scroll.addEventListener('touchstart', e => {
+                    if (e.touches.length > 1) e.preventDefault();
+                }, { passive: false, ...sig });
+            }
+
+            // ── Scroll handler — page indicator + auto-add ──────────────────
+            _npBindScroll() {
+                const scroll = $('np-scroll');
+                if (!scroll) return;
+
+                // IntersectionObserver: auto-add page when sentinel is visible
+                if (this._npObserver) this._npObserver.disconnect();
+                this._npObserver = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting) {
+                        this.notepadAddPage(true); // silent
+                    }
+                }, { root: scroll, threshold: 0.5 });
+                const sentinel = $('np-sentinel');
+                if (sentinel) this._npObserver.observe(sentinel);
+
+                // Show page indicator while scrolling
+                scroll.addEventListener('scroll', () => {
+                    const idx = Math.floor(scroll.scrollTop / this._NP_PAGE_HEIGHT);
+                    const ind = $('np-scroll-indicator');
+                    if (ind) {
+                        ind.innerText = `Page ${Math.min(idx + 1, this._npPages.length)} of ${this._npPages.length}`;
+                        ind.style.display = 'block';
+                        clearTimeout(this._npScrollTimer);
+                        this._npScrollTimer = setTimeout(() => { ind.style.display = 'none'; }, 1500);
+                    }
+                }, { passive: true });
+            }
+
+            // ── Page management ─────────────────────────────────────────────
+            notepadAddPage(silent = false) {
+                const today = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+                // Only stamp date if this is a new day vs last page
+                const lastDate = this._npPages[this._npPages.length - 1]?.date;
+                const newPage = {
+                    id:   this._npPages.length,
+                    date: lastDate === today ? null : today
+                };
+                this._npPages.push(newPage);
+                this._npSaveMeta();
+
+                // Append page strip to DOM without full re-render
+                const scroll    = $('np-scroll');
+                const container = $('np-pages');
+                const W = scroll.clientWidth || window.innerWidth;
+                const idx = this._npPages.length - 1;
+                const pageDiv = document.createElement('div');
+                pageDiv.id = 'np-page-' + idx;
+                pageDiv.style.cssText = `position:relative;width:${W}px;height:${this._NP_PAGE_HEIGHT}px;flex-shrink:0;`;
+
+                const bgCanvas = document.createElement('canvas');
+                bgCanvas.width = W; bgCanvas.height = this._NP_PAGE_HEIGHT;
+                bgCanvas.style.cssText = 'position:absolute;top:0;left:0;touch-action:none;';
+                bgCanvas.id = 'np-bg-' + idx;
+                this._npDrawRuled(bgCanvas, newPage.date, idx);
+
+                const drawCanvas = document.createElement('canvas');
+                drawCanvas.width = W; drawCanvas.height = this._NP_PAGE_HEIGHT;
+                drawCanvas.style.cssText = 'position:absolute;top:0;left:0;touch-action:none;cursor:crosshair;';
+                drawCanvas.id = 'np-draw-' + idx;
+
+                const lbl = document.createElement('div');
+                lbl.style.cssText = 'position:absolute;bottom:12px;right:16px;font-size:11px;color:#b0c4d8;font-family:monospace;pointer-events:none;';
+                lbl.innerText = idx + 1;
+
+                pageDiv.appendChild(bgCanvas);
+                pageDiv.appendChild(drawCanvas);
+                pageDiv.appendChild(lbl);
+                container.appendChild(pageDiv);
+
+                if (!silent) {
+                    // Scroll to new page
+                    setTimeout(() => { scroll.scrollTo({ top: idx * this._NP_PAGE_HEIGHT, behavior: 'smooth' }); }, 50);
+                    showToast('Page ' + (idx + 1) + ' added');
+                }
+                this._npUpdateIndicator();
+            }
+
+            notepadJumpToday() {
+                const today = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
+                const todayIdx = this._npPages.findIndex(p => p.date === today);
+                const scroll = $('np-scroll');
+                if (todayIdx >= 0 && scroll) {
+                    scroll.scrollTo({ top: todayIdx * this._NP_PAGE_HEIGHT, behavior: 'smooth' });
+                } else {
+                    showToast('No page for today yet — adding one');
+                    this.notepadAddPage(false);
+                }
+            }
+
+            notepadClearPage() {
+                const scroll = $('np-scroll');
+                const idx = Math.floor(scroll.scrollTop / this._NP_PAGE_HEIGHT);
+                if (!confirm('Clear all strokes on page ' + (idx + 1) + '?')) return;
+                const canvas = $('np-draw-' + idx);
+                if (canvas) canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+                this.offlineMgr.deleteMarkup(this._npKey(idx));
+            }
+
+            toggleNotepadEraser() {
+                this._npErasing = !this._npErasing;
+                const btn = $('np-eraser-btn');
+                if (this._npErasing) {
+                    btn.style.background = '#fef2f2'; btn.style.color = '#dc2626';
+                } else {
+                    btn.style.background = 'none'; btn.style.color = '#64748b';
+                }
+            }
+
+            toggleNotepadPalm() {
+                this._npPalmRej = !this._npPalmRej;
+                const btn = $('np-palm-btn');
+                if (this._npPalmRej) {
+                    btn.style.background = '#eff6ff'; btn.style.color = '#1d4ed8';
+                    showToast('Palm rejection ON — pen only', 2000);
+                } else {
+                    btn.style.background = 'none'; btn.style.color = '#64748b';
+                    showToast('Palm rejection OFF', 1500);
+                }
+            }
+
+            _npUpdateIndicator() {
+                const el = $('np-page-indicator');
+                if (el) el.innerText = this._npPages.length + ' page' + (this._npPages.length !== 1 ? 's' : '');
+            }
+
+            // ── Export current page to project log ──────────────────────────
+            async exportNotepadPage() {
+                const scroll = $('np-scroll');
+                const idx = Math.floor(scroll.scrollTop / this._NP_PAGE_HEIGHT);
+                const bgCanvas   = $('np-bg-' + idx);
+                const drawCanvas = $('np-draw-' + idx);
+                if (!bgCanvas) return;
+
+                // Merge background + strokes
+                const merged = document.createElement('canvas');
+                merged.width  = bgCanvas.width;
+                merged.height = bgCanvas.height;
+                const mCtx = merged.getContext('2d');
+                mCtx.drawImage(bgCanvas, 0, 0);
+                mCtx.drawImage(drawCanvas, 0, 0);
+
+                merged.toBlob(async (blob) => {
+                    if (!blob) return showToast('Export failed');
+                    const id = 'np_' + Date.now();
+                    const num = (state.items.filter(i => i.type === 'photo').reduce((m,i) => Math.max(m, i.photoNumber||0), 0)) + 1;
+                    const meta = {
+                        id, projectId: state.project, type: 'photo', subtype: 'notepad',
+                        title: 'Note Pad — Page ' + (idx + 1),
+                        detailedDesc: 'Handwritten notepad page ' + (idx + 1),
+                        caption: 'Note Pad — Page ' + (idx + 1),
+                        timestamp: Date.now(), dateString: formatDate(Date.now()),
+                        lat: state.location?.lat || null, lng: state.location?.lng || null,
+                        photoNumber: num,
+                    };
+                    try {
+                        toggleLoader(true, 'Saving page…');
+                        await withUploadTimeout(this.uploadWorkflow(blob, meta, false), getTimeoutMs() * 2);
+                        showToast('✓ Page saved to project log');
+                    } catch(e) {
+                        showToast('Save failed: ' + e.message);
+                    } finally {
+                        toggleLoader(false);
+                    }
+                }, 'image/jpeg', 0.92);
+            }
+
+            // ── Close ───────────────────────────────────────────────────────
+            closeNotepad() {
+                // Save current visible page before closing
+                const scroll = $('np-scroll');
+                if (scroll) {
+                    const idx = Math.floor(scroll.scrollTop / this._NP_PAGE_HEIGHT);
+                    this._npSavePage(idx);
+                }
+                if (this._npPointerAbort) { this._npPointerAbort.abort(); this._npPointerAbort = null; }
+                if (this._npObserver)     { this._npObserver.disconnect(); this._npObserver = null; }
+                $('modal-notepad').classList.add('hidden');
+                $('modal-notepad').style.display = 'none';
+                this._npSaveMeta();
+                // Update tile badge
+                const badge = $('notepad-page-badge');
+                if (badge) badge.innerText = this._npPages.length > 1 ? this._npPages.length + ' pages' : '';
+            }
+
+
+
+            // ── CAPTURE BAR ────────────────────────────────────────────────
+            // Tap = camera, long-press = gallery (via contextmenu / pointerdown timer)
+            initCaptureBar() {
+                const btn = $('btn-camera-main');
+                if (!btn) return;
+                let holdTimer = null;
+
+                btn.addEventListener('pointerdown', () => {
+                    holdTimer = setTimeout(() => {
+                        holdTimer = null;
+                        this._triggerGallery();
+                    }, 500);
+                });
+                btn.addEventListener('pointerup', () => { clearTimeout(holdTimer); holdTimer = null; });
+                btn.addEventListener('pointercancel', () => { clearTimeout(holdTimer); holdTimer = null; });
+            }
+
+            _triggerGallery() {
+                $('gallery-input')?.click();
+            }
+
+            openCaptureSheet() {
+                const sheet = $('capture-sheet');
+                if (!sheet) return;
+                sheet.style.display = 'flex';
+                sheet.style.animation = 'none';
+                // Animate panel up
+                const panel = $('capture-sheet-panel');
+                panel.style.transform = 'translateY(100%)';
+                requestAnimationFrame(() => {
+                    panel.style.transition = 'transform .28s cubic-bezier(.32,.72,0,1)';
+                    panel.style.transform = 'translateY(0)';
+                });
+                lucide.createIcons();
+            }
+
+            closeCaptureSheet() {
+                const panel = $('capture-sheet-panel');
+                const sheet = $('capture-sheet');
+                if (!panel || !sheet) return;
+                panel.style.transition = 'transform .22s ease-in';
+                panel.style.transform = 'translateY(100%)';
+                setTimeout(() => { sheet.style.display = 'none'; panel.style.transition = ''; }, 230);
+            }
+
             async genCSV() {
                 const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id));
                 if(exportItems.length === 0) return showToast("No items selected");
@@ -6756,4 +7431,26 @@
                 await Promise.all(list.map(async (i) => {
                     try {
                         const u = isRaw ? await getDownloadURL(ref(state.storage, i.rawStoragePath)) : i.url;
-                        const b = await (await 
+                        const b = await (await fetch(u)).blob();
+                        zip.file(`${i.projectId}_${i.id}${isRaw?'_RAW':''}.jpg`, b);
+                    } catch(e) { console.warn('Skipping file in zip', i.id, e); }
+                }));
+                const c = await zip.generateAsync({type:"blob"});
+                const a = document.createElement('a'); a.href = URL.createObjectURL(c); a.download = `${state.project}_${name}.zip`; a.click();
+                setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+                toggleLoader(false);
+            }
+
+            urlToBase64(url) {
+                return new Promise((r, j) => {
+                    const img = new Image(); img.crossOrigin='Anonymous';
+                    img.onload = () => { const c = document.createElement('canvas'); c.width=img.naturalWidth; c.height=img.naturalHeight; c.getContext('2d').drawImage(img,0,0); r(c.toDataURL('image/jpeg')); };
+                    img.onerror = j; img.src = url;
+                });
+            }
+        }
+
+        window.onload = () => { window.app = new FieldApp(); };
+    </script>
+</body>
+</html>
