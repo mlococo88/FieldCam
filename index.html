@@ -4585,7 +4585,13 @@
                 $('report-preview-photo').classList.add('hidden');
                 $('report-preview-note').classList.add('hidden');
 
-                if (item.type === 'note') {
+                if (item.type === 'notepad' && !item.url) {
+                    // Quick Notes with no image yet — show a placeholder panel
+                    $('report-preview-note-title').innerText = item.title || 'Quick Notes';
+                    $('report-preview-note-body').innerText = 'Open the Note Pad to view and add to these notes.';
+                    $('report-preview-note-date').innerText = item.dateString || '';
+                    $('report-preview-note').classList.remove('hidden');
+                } else if (item.type === 'note') {
                     $('report-preview-note-title').innerText = item.title || 'Note';
                     const bodyEl = $('report-preview-note-body');
                     if (item.html) { bodyEl.innerHTML = item.html; }
@@ -4664,12 +4670,35 @@
                     div.onclick = (e) => {
                         // Don't trigger preview if clicking edit/delete buttons or checkbox
                         if (e.target.closest('button') || e.target.closest('input[type=checkbox]')) return;
+                        if (item.type === 'notepad') { window.app.openNotepad(); return; }
                         window.app.showDesktopPreview(item.id);
                     };
                     const isChecked = !state.excludedReportItems.has(item.id);
                     const checkboxHtml = `<div class="absolute top-2 left-2 z-20" onclick="event.stopPropagation()"><input type="checkbox" class="w-5 h-5 accent-blue-600 rounded cursor-pointer shadow-sm" ${isChecked ? 'checked' : ''} onchange="window.app.toggleReportSelection('${item.id}')"></div>`;
-                    if(item.type === 'photo' || item.type === 'sketch' || item.type === 'notepad') {
+                    if(item.type === 'photo' || item.type === 'sketch') {
                         div.innerHTML = `${checkboxHtml}<div class="w-24 h-24 bg-slate-200 relative flex-none flex items-center justify-center text-slate-400"><i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i><img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'"></div><div class="p-3 flex-1 flex flex-col justify-between overflow-hidden"><div><div class="flex justify-between items-start"><div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div><div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div></div><h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4><p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p></div><div class="flex justify-end gap-3 mt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
+                    } else if(item.type === 'notepad') {
+                        // Quick Notes card — shows saved page image + page info
+                        const pageNum = item.title?.match(/Page (\d+)/)?.[1] || '1';
+                        div.innerHTML = `${checkboxHtml}
+                            <div class="w-24 h-24 bg-sky-50 relative flex-none flex items-center justify-center text-sky-300 overflow-hidden">
+                                ${item.url ? `<img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'">` : ''}
+                                <svg class="w-8 h-8 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            </div>
+                            <div class="p-3 flex-1 flex flex-col justify-between overflow-hidden">
+                                <div>
+                                    <div class="flex justify-between items-start">
+                                        <div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div>
+                                        <div class="text-[10px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">Quick Notes</div>
+                                    </div>
+                                    <h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Quick Notes'}</h4>
+                                    <p class="text-xs text-slate-500 truncate">${item.detailedDesc || ''}</p>
+                                </div>
+                                <div class="flex justify-end gap-3 mt-2">
+                                    <button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Open</button>
+                                    <button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
+                                </div>
+                            </div>`;
                     } else {
                         const linkedPhoto = item.linkedPhotoId ? state.items.find(i => i.id === item.linkedPhotoId) : null;
                         const linkedThumb = linkedPhoto ? `<img src="${linkedPhoto.url}" class="w-10 h-10 rounded border border-slate-200 object-cover flex-none ml-2" title="Linked: Photo #${linkedPhoto.photoNumber||'?'}">` : '';
@@ -4707,7 +4736,7 @@
             setFilter(f) {
                 state.filter = f;
                 $('search-input').value = ''; // #13 clear search when filter changes
-                ['all','photo','sketch','note'].forEach(k => {
+                ['all','photo','sketch','note','notepad'].forEach(k => {
                     const btn = $(`filter-${k}`);
                     if(f===k) { btn.classList.remove('text-slate-500','hover:text-slate-700'); btn.classList.add('bg-white','shadow','text-slate-800'); }
                     else { btn.classList.add('text-slate-500','hover:text-slate-700'); btn.classList.remove('bg-white','shadow','text-slate-800'); }
@@ -4735,7 +4764,7 @@
                 const item = state.items.find(i => i.id === id);
                 if(!item) return;
                 state.currentItem = item;
-                if(item.type === 'notepad') { showToast('Open Note Pad to edit pages'); return; }
+                if(item.type === 'notepad') { this.openNotepad(); return; }
                 if(item.type === 'photo' || item.type === 'sketch') this.openCaptionModal(item.url, true);
                 else this.openNotes(item);
             }
