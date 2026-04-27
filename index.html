@@ -271,9 +271,10 @@
             <span>Digital Notes</span>
         </button>
 
-        <button class="cap-btn" onclick="window.app.openNotepad()" title="Open handwritten note pad">
+        <button class="cap-btn" onclick="window.app.openNotepad()" title="Open handwritten note pad" style="position:relative;">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             <span>Quick Notes</span>
+            <span id="notepad-page-badge" style="display:none;position:absolute;top:4px;right:4px;background:#0369a1;color:white;font-size:8px;font-weight:700;padding:1px 4px;border-radius:999px;line-height:1.4;"></span>
         </button>
     </div>
 
@@ -2259,7 +2260,7 @@
                         try {
                             const npMeta = JSON.parse(localStorage.getItem('np_meta_' + state.project) || '[]');
                             const npBadge = $('notepad-page-badge');
-                            if (npBadge && npMeta.length > 1) npBadge.innerText = npMeta.length + ' pages';
+                            if (npBadge && npMeta.length > 1) npBadge.innerText = npMeta.length + ' pages'; // badge may not exist if tile removed
                         } catch(e) {}
                     }
                 });
@@ -3709,12 +3710,12 @@
                 const enterBarrel = () => {
                     if (barrelErasing) return; barrelErasing = true;
                     this._barrelSavedColor = $('sketch-color').value;
-                    $('btn-eraser')?.classList.add('bg-red-100','text-red-600');
+                    $('sk-tool-eraser')?.classList.add('bg-red-100','text-red-600');
                 };
                 const exitBarrel = () => {
                     if (!barrelErasing) return; barrelErasing = false;
                     if (this._barrelSavedColor) { $('sketch-color').value = this._barrelSavedColor; this._barrelSavedColor = null; }
-                    $('btn-eraser')?.classList.remove('bg-red-100','text-red-600');
+                    $('sk-tool-eraser')?.classList.remove('bg-red-100','text-red-600');
                     ctx.beginPath();
                 };
 
@@ -4527,11 +4528,8 @@
 
             // ── INSPECT TAB: right panel (removed — inspect tab gone) ───────
             renderRecentPanel() {
-                // Inspect tab removed; capture promoted to persistent bar.
-                // This method is kept to avoid breaking call sites but does nothing.
-                const panel = $('inspect-recent-feed');
-                const countEl = $('inspect-recent-count');
-                if (!panel) return; // always returns early now
+                // Inspect tab removed — this is intentionally a no-op.
+                return;
                 const recent = state.items.slice(0, 20);
                 countEl.innerText = state.items.length > 0 ? `(${state.items.length})` : '';
                 if (recent.length === 0) {
@@ -4910,7 +4908,7 @@
                 // Populate and open the notes modal in read-only-style view
                 $('note-modal-title').innerText = item.title || 'Note';
                 $('note-title').value = item.title || '';
-                $('note-text').value = item.text || item.detailedDesc || '';
+                // note-text removed; editor is now contenteditable #note-editor (handled in openNotes)
                 $('btn-save-note').innerText = 'Update Note';
                 state.editingNoteId = item.id;
                 $('modal-notes').classList.remove('hidden');
@@ -6243,16 +6241,16 @@
                 const enterBarrel = () => {
                     if (this._pdfBarrelErasing) return;
                     this._pdfBarrelErasing = true;
-                    $('pdf-eraser-btn')?.classList.add('bg-red-600','text-white');
-                    $('pdf-eraser-btn')?.classList.remove('text-slate-400');
+                    $('pdf-tool-eraser')?.classList.add('bg-red-600','text-white');
+                    // pdf-eraser-btn replaced by pdf-tool-eraser
                     showToast('✏ Barrel erase active', 1000);
                 };
                 const exitBarrel = () => {
                     if (!this._pdfBarrelErasing) return;
                     this._pdfBarrelErasing = false;
                     if (!this._pdfErasing) {
-                        $('pdf-eraser-btn')?.classList.remove('bg-red-600','text-white');
-                        $('pdf-eraser-btn')?.classList.add('text-slate-400');
+                        $('pdf-tool-eraser')?.classList.add('bg-red-600','text-white');
+                        // eraser active class managed by selectPDFTool
                     }
                     dCtx.beginPath(); // clean break after erase
                 };
