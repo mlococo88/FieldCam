@@ -1419,9 +1419,9 @@
             <label class="text-xs font-bold text-slate-500 uppercase mb-2 block">Photo Management</label>
             <button onclick="window.app.renumberPhotos()" class="w-full py-2.5 mb-2 bg-amber-50 border border-amber-200 text-amber-800 font-bold rounded-xl text-sm hover:bg-amber-100 flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/><path d="M15 15l2 2 4-4"/></svg>
-                Renumber Photos in Order
+                Renumber &amp; Re-burn Overlays
             </button>
-            <p class="text-[10px] text-slate-400 mb-4 text-center">Reassigns photo numbers chronologically — useful after deleting photos or if numbering is out of sync.</p>
+            <p class="text-[10px] text-slate-400 mb-4 text-center">Sorts photos chronologically, updates numbers, and re-burns the overlay on each photo with the current number and caption.</p>
             <button onclick="window.app.toggleSettings()" class="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-200">Close</button>
         </div>
     </div>
@@ -2416,7 +2416,7 @@
                 if (!confirm(
                     `Renumber ${needsChange.length} photo${needsChange.length !== 1 ? 's' : ''} in chronological order?\n\n` +
                     `Preview:\n${preview}\n\n` +
-                    `${reburn > 0 ? `Will also re-burn the overlay text on ${reburn} photo${reburn !== 1 ? 's' : ''} to update the burned-in number.\n\n` : ''}` +
+                    `${reburn > 0 ? `Will re-burn the overlay on ${reburn} photo${reburn !== 1 ? 's' : ''} — updating the burned-in number AND caption to match current log entries.\n\n` : ''}` +
                     `This cannot be undone.`
                 )) return;
 
@@ -2443,16 +2443,23 @@
                                 const rawResp = await fetch(rawUrl);
                                 const rawBlob = await rawResp.blob();
                                 const newOverlayBlob = await this.burnOverlay(rawBlob, updatedMeta);
-                                await uploadBytes(ref(state.storage, item.storagePath), newOverlayBlob);
-                                // URL is the same path so no Firestore url update needed
+                                const snap = await uploadBytes(ref(state.storage, item.storagePath), newOverlayBlob);
+                                // Get fresh URL and write back — same path ≠ same cached URL
+                                const freshUrl = await getDownloadURL(snap.ref);
+                                await setDoc(
+                                    doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
+                                    { photoNumber: newNum, url: freshUrl },
+                                    { merge: true }
+                                );
                                 reburned++;
+                                continue; // Firestore already updated above
                             } catch(e) {
                                 console.warn('Re-burn failed for', item.id, e.message);
-                                // Continue — number will still update in Firestore even if re-burn fails
+                                // Fall through to update just the number below
                             }
                         }
 
-                        // ── Update Firestore ──────────────────────────────────────
+                        // ── Update Firestore (number only, no reburn) ─────────────
                         await setDoc(
                             doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
                             { photoNumber: newNum },
@@ -4821,7 +4828,12 @@
                         const rawUrl  = await getDownloadURL(ref(state.storage, item.rawStoragePath));
                         const rawBlob = await (await fetch(rawUrl)).blob();
                         const newOverlay = await this.burnOverlay(rawBlob, updatedMeta);
-                        await uploadBytes(ref(state.storage, item.storagePath), newOverlay);
+                        const snap = await uploadBytes(ref(state.storage, item.storagePath), newOverlay);
+                        // Get the fresh download URL and write it back — without this
+                        // the browser keeps serving the old cached image forever
+                        const freshUrl = await getDownloadURL(snap.ref);
+                        await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, item.id),
+                            { url: freshUrl }, { merge: true });
                         showToast('✓ Caption updated and overlay re-burned');
                     } catch(e) {
                         showToast('Caption saved — overlay re-burn failed: ' + e.message);
