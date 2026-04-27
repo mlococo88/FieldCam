@@ -1237,8 +1237,8 @@
                         <label class="flex items-center gap-2 cursor-pointer col-span-2">
                             <input type="checkbox" id="pdf-sec-notepad" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
                             <div>
-                                <span class="text-sm text-slate-700">Working Notes (Note Pad)</span>
-                                <p class="text-[10px] text-slate-400">Includes saved notepad pages as a working notes appendix</p>
+                                <span class="text-sm text-slate-700">Quick Notes</span>
+                                <p class="text-[10px] text-slate-400">Saved Quick Notes pages, placed after Field Notes</p>
                             </div>
                         </label>
                     </div>
@@ -1540,7 +1540,7 @@
             // Layout
             orientation: 'portrait', photosPerPage: 2, sortOrder: 'asc', accentColor: '#2563eb',
             // Sections
-            secIndex: true, secNotes: true, secPhotos: true, secSketches: true, secPlans: true, secPlansSideBySide: false, secMap: true, secNotepad: false,
+            secIndex: true, secNotes: true, secPhotos: true, secSketches: true, secPlans: true, secPlansSideBySide: false, secMap: true, secNotepad: true,
             // Photo options
             rawPhotos: false, showGPS: true, showWeather: true, showHeading: true,
             // Header/footer
@@ -5311,6 +5311,38 @@
                         }
                     }
 
+                    // ── QUICK NOTES (Note Pad pages saved to log) ───────────
+                    if (o.secNotepad) {
+                        const npItems = sortedItems.filter(i => i.type === 'notepad');
+                        if (npItems.length > 0) {
+                            doc.addPage(); pageNum++;
+                            addRunningHeader();
+                            const bmQuickNotes = { title: 'Quick Notes', page: pageNum, children: [] };
+                            bmTree.push(bmQuickNotes);
+                            let y = sectionHeader('Quick Notes');
+
+                            for (let ni = 0; ni < npItems.length; ni++) {
+                                const np = npItems[ni];
+                                if (!np.url) continue;
+                                try {
+                                    const imgData = await this.urlToBase64(np.url);
+                                    const imgProps = doc.getImageProperties(imgData);
+                                    const ratio = imgProps.height / imgProps.width;
+                                    const dW = contentW;
+                                    const dH = Math.min(dW * ratio, pageHeight - y - 20);
+                                    if (y + dH > pageHeight - 15) { newPage(); y = 22; }
+                                    doc.addImage(imgData, 'JPEG', margin, y, dW, dH);
+                                    y += dH + 3;
+                                    doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(120,120,120);
+                                    doc.text(np.title || 'Quick Notes', margin, y);
+                                    doc.setFont('helvetica','normal'); doc.setTextColor(0,0,0);
+                                    y += 8;
+                                    bmQuickNotes.children.push({ title: np.title || 'Quick Notes', page: pageNum });
+                                } catch(e) { console.warn('Quick Notes image failed:', e); }
+                            }
+                        }
+                    }
+
                     // ── PHOTO / SKETCH LOG ──────────────────────────────────
                     const ppp = o.photosPerPage || 2;
                     const addImagesSection = async (secTitle, items) => {
@@ -5447,14 +5479,6 @@
                                     }
                                 }
                             }
-                        }
-                    }
-
-                    // ── WORKING NOTES (NOTEPAD) ─────────────────────────────
-                    if (o.secNotepad) {
-                        const npItems = sortedItems.filter(i => i.type === 'notepad');
-                        if (npItems.length > 0) {
-                            await addImagesSection('Working Notes — Note Pad', npItems);
                         }
                     }
 
