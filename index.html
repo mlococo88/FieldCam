@@ -58,10 +58,9 @@
     /* ── Tab system ────────────────────────────────────────────────── */
     .tab-content { display: none; height: 100%; }
     .tab-content.active { display: block; overflow-y: auto; }
-    #tab-inspect.active { display: flex; flex-direction: column; }
     #tab-plans.active   { display: flex; flex-direction: column; }
-    #tab-report.active  { display: block; overflow-y: hidden; }
-    #tab-map.active     { display: block; }
+    #tab-report.active  { display: block; height: 100%; overflow: hidden; }
+    #tab-map.active     { display: block; height: 100%; overflow: hidden; }
     #tab-files.active   { display: block; }
 
     /* ── Desktop two-col ───────────────────────────────────────────── */
@@ -70,8 +69,7 @@
         /* tab-inspect removed — capture moved to persistent bar */
         #tab-report  { display: none; }
         #tab-report.active  { display: grid; grid-template-columns: 420px 1fr; height: 100%; }
-        .inspect-left  { padding: 1.5rem; overflow-y: auto; border-right: 1px solid var(--border); background: var(--surface-2); }
-        .inspect-right { display: flex; flex-direction: column; overflow: hidden; }
+        /* inspect-left/right removed — inspect tab replaced by capture bar */
         .report-left   { display: flex; flex-direction: column; overflow: hidden; border-right: 1px solid var(--border); }
         .report-right  { display: flex; flex-direction: column; overflow: hidden; background: #0f172a; }
     }
@@ -187,91 +185,31 @@
     /* ── Sketch active tool ────────────────────────────────────────── */
     .sk-tool.active-tool { background:var(--blue) !important; color:white !important; }
 
-    /* ── Capture sub-header ─────────────────────────────────────────── */
+    /* ── Capture bar — 5-button row ─────────────────────────────────── */
     #capture-bar {
         background: var(--surface);
         border-bottom: 1px solid var(--border);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        padding: 8px 12px;
-        flex-shrink: 0;
-        z-index: 20;
+        display: flex; align-items: stretch;
+        flex-shrink: 0; z-index: 20;
+        overflow: hidden;
     }
-    #btn-camera-main {
-        display: flex; align-items: center; justify-content: center; gap: 7px;
-        background: var(--blue); color: white;
-        border: none; border-radius: 10px;
-        padding: 9px 18px; font-size: 13px; font-weight: 700;
-        cursor: pointer; flex-shrink: 0;
-        transition: background .15s, transform .1s;
-        -webkit-user-select: none; user-select: none;
+    .cap-btn {
+        flex: 1; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 4px;
+        padding: 8px 4px; border: none; background: none;
+        cursor: pointer; color: var(--text-2);
+        transition: background .12s, color .12s;
+        position: relative;
     }
-    #btn-camera-main:active { transform: scale(.96); background: var(--blue-dark); }
+    .cap-btn:not(:last-child) { border-right: 1px solid var(--border); }
+    .cap-btn:hover  { background: var(--surface-2); color: var(--blue); }
+    .cap-btn:active { background: var(--surface-3); }
+    .cap-btn.primary { background: var(--blue); color: white; }
+    .cap-btn.primary:hover  { background: var(--blue-dark); }
+    .cap-btn.primary:active { background: var(--blue-dark); }
+    .cap-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+    .cap-btn span { font-size: 10px; font-weight: 600; letter-spacing: .01em; }
 
-    /* Sensor pill strip */
-    #sensor-strip {
-        flex: 1; display: flex; align-items: center; gap: 0;
-        background: var(--surface-2); border: 1px solid var(--border);
-        border-radius: 8px; overflow: hidden; min-width: 0;
-    }
-    .sensor-pill {
-        flex: 1; display: flex; flex-direction: column; align-items: center;
-        padding: 5px 4px; cursor: pointer; border: none; background: none;
-        transition: background .12s; min-width: 0;
-    }
-    .sensor-pill:not(:last-child) { border-right: 1px solid var(--border); }
-    .sensor-pill:hover { background: var(--surface-3); }
-    .sensor-pill .lbl { font-size: 9px; }
-    .sensor-pill span:last-child { font-size: 10px; font-weight: 600; color: var(--text-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
-
-    /* FAB */
-    #capture-fab {
-        position: absolute; bottom: 88px; right: 16px; z-index: 20;
-        width: 52px; height: 52px; border-radius: 50%;
-        background: var(--blue); color: white; border: none;
-        box-shadow: 0 4px 16px rgba(37,99,235,.35);
-        display: flex; align-items: center; justify-content: center;
-        cursor: pointer; font-size: 26px; font-weight: 300;
-        transition: transform .15s, box-shadow .15s, background .15s;
-    }
-    #capture-fab:active { transform: scale(.93); box-shadow: 0 2px 8px rgba(37,99,235,.3); }
-
-    /* FAB action sheet */
-    #capture-sheet {
-        position: fixed; inset: 0; z-index: 50;
-        display: flex; flex-direction: column; justify-content: flex-end;
-    }
-    #capture-sheet-backdrop {
-        position: absolute; inset: 0; background: rgba(0,0,0,.4);
-    }
-    #capture-sheet-panel {
-        position: relative; background: var(--surface);
-        border-radius: 20px 20px 0 0;
-        padding: 20px 16px max(20px, env(safe-area-inset-bottom));
-        display: flex; flex-direction: column; gap: 10px;
-    }
-    #capture-sheet-panel .sheet-handle {
-        width: 36px; height: 4px; background: var(--border);
-        border-radius: 2px; margin: 0 auto 8px;
-    }
-    .sheet-action {
-        display: flex; align-items: center; gap: 14px;
-        padding: 13px 16px; border-radius: 14px;
-        background: var(--surface-2); border: 1px solid var(--border);
-        cursor: pointer; text-decoration: none;
-        transition: background .12s, border-color .12s;
-    }
-    .sheet-action:active { background: var(--surface-3); }
-    .sheet-action-icon {
-        width: 40px; height: 40px; border-radius: 12px;
-        display: flex; align-items: center; justify-content: center;
-        flex-shrink: 0;
-    }
-    .sheet-action-icon svg { width: 20px; height: 20px; }
-    .sheet-action-text { display: flex; flex-direction: column; gap: 1px; }
-    .sheet-action-text strong { font-size: 14px; font-weight: 600; color: var(--text-1); }
-    .sheet-action-text span { font-size: 11px; color: var(--text-3); }
 </style>
 </head>
 <body>
@@ -306,41 +244,36 @@
         </div>
     </header>
 
-    <!-- CAPTURE BAR — Camera button + sensor strip, always visible -->
+    <!-- CAPTURE BAR — 5 action buttons, always visible above content -->
     <div id="capture-bar">
-        <!-- Camera: tap = live camera, long-press = gallery -->
-        <button id="btn-camera-main"
-            onclick="window.app.openCamera()"
-            oncontextmenu="event.preventDefault(); window.app._triggerGallery();"
-            title="Tap: Camera  |  Long-press: Gallery">
-            <i data-lucide="camera" style="width:18px;height:18px;"></i>
-            Camera
-        </button>
+        <!-- Hidden file inputs -->
         <input type="file" id="camera-input"  accept="image/*" capture="environment" style="display:none;">
         <input type="file" id="gallery-input" accept="image/*" multiple style="display:none;">
 
-        <!-- Sensor strip -->
-        <div id="sensor-strip">
-            <button class="sensor-pill" onclick="window.app.requestGPS()">
-                <span class="lbl">GPS</span>
-                <span id="gps-val">Waiting…</span>
-            </button>
-            <button class="sensor-pill" onclick="window.app.requestCompass()">
-                <span class="lbl">Heading</span>
-                <span style="display:flex;align-items:center;gap:3px;">
-                    <svg id="compass-icon" style="width:11px;height:11px;flex-shrink:0;transition:transform .5s;" viewBox="0 0 24 24" fill="none">
-                        <circle cx="12" cy="12" r="10" stroke="#e2e8f0" stroke-width="2"/>
-                        <path d="M12 2L15 12H9Z" fill="#ef4444"/>
-                        <path d="M12 22L9 12H15Z" fill="#94a3b8"/>
-                    </svg>
-                    <span id="compass-val" style="font-size:10px;font-weight:600;color:var(--text-1);">Off</span>
-                </span>
-            </button>
-            <button class="sensor-pill" onclick="window.app.retryWeather()">
-                <span class="lbl">Weather</span>
-                <span id="wx-val">--</span>
-            </button>
-        </div>
+        <button class="cap-btn primary" onclick="window.app.openCamera()" title="Take a live photo">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            <span>Camera</span>
+        </button>
+
+        <button class="cap-btn" onclick="window.app._triggerGallery()" title="Import from camera roll">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <span>Gallery</span>
+        </button>
+
+        <button class="cap-btn" onclick="window.app.openSketch()" title="Draw a field sketch">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <span>Sketch</span>
+        </button>
+
+        <button class="cap-btn" onclick="window.app.openNotes()" title="Add a typed note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+            <span>Notes</span>
+        </button>
+
+        <button class="cap-btn" onclick="window.app.openNotepad()" title="Open handwritten note pad">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>Note Pad</span>
+        </button>
     </div>
 
     <!-- MAIN CONTENT AREA -->
@@ -351,7 +284,7 @@
             <div class="flex flex-col h-full md:contents">
 
                 <!-- LEFT: list -->
-                <div class="report-left flex flex-col h-full md:h-auto bg-white">
+                <div class="report-left flex flex-col h-full md:h-auto bg-white" style="position:relative;">
                     <div class="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50 flex-none">
                         <div class="flex items-center gap-2">
                             <h2 class="font-bold text-slate-800">Project Log <span id="log-count" class="text-xs font-normal text-slate-400"></span></h2>
@@ -390,10 +323,7 @@
                         </button>
                     </div>
 
-                    <!-- Capture FAB — "+" opens action sheet -->
-                    <button id="capture-fab" onclick="window.app.openCaptureSheet()" title="Capture">
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="width:24px;height:24px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                    </button>
+
                 </div>
 
                 <!-- RIGHT: desktop preview panel -->
@@ -438,10 +368,10 @@
         </div>
 
         <!-- TAB 3: MAP -->
-        <div id="tab-map" class="tab-content" style="position:relative;">
-            <div id="map-container" class="bg-slate-200"></div>
-            <button onclick="window.app.centerMap()" class="absolute bottom-6 right-4 bg-white p-2 rounded-lg shadow-md z-[400] text-slate-700 hover:text-blue-600">
-                <i data-lucide="crosshair" class="w-6 h-6"></i>
+        <div id="tab-map" class="tab-content" style="position:relative;height:100%;overflow:hidden;">
+            <div id="map-container" style="width:100%;height:100%;background:#e2e8f0;"></div>
+            <button onclick="window.app.centerMap()" style="position:absolute;bottom:24px;right:16px;z-index:400;background:white;border:1px solid #e2e8f0;border-radius:10px;padding:8px;box-shadow:0 2px 8px rgba(0,0,0,.1);color:#475569;cursor:pointer;display:flex;align-items:center;justify-content:center;" title="Center on my location">
+                <i data-lucide="crosshair" style="width:22px;height:22px;"></i>
             </button>
         </div>
 
@@ -849,54 +779,7 @@
         </div>
     </div>
 
-    <!-- CAPTURE ACTION SHEET ─────────────────────────────────────────── -->
-    <div id="capture-sheet" style="display:none;" onclick="if(event.target===this||event.target.id==='capture-sheet-backdrop')window.app.closeCaptureSheet()">
-        <div id="capture-sheet-backdrop"></div>
-        <div id="capture-sheet-panel">
-            <div class="sheet-handle"></div>
-            <p style="font-size:11px;font-weight:700;color:var(--text-3);letter-spacing:.06em;text-transform:uppercase;margin-bottom:4px;">Add to Project</p>
 
-            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app._triggerGallery();">
-                <div class="sheet-action-icon" style="background:#eff6ff;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#4f46e5" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                </div>
-                <div class="sheet-action-text">
-                    <strong>Gallery</strong>
-                    <span>Import photos from camera roll</span>
-                </div>
-            </button>
-
-            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app.openSketch();">
-                <div class="sheet-action-icon" style="background:#f5f3ff;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-                </div>
-                <div class="sheet-action-text">
-                    <strong>Sketch</strong>
-                    <span>Draw a field sketch or annotation</span>
-                </div>
-            </button>
-
-            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app.openNotes();">
-                <div class="sheet-action-icon" style="background:#f0fdf4;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-                </div>
-                <div class="sheet-action-text">
-                    <strong>Notes</strong>
-                    <span>Add a typed field observation</span>
-                </div>
-            </button>
-
-            <button class="sheet-action" onclick="window.app.closeCaptureSheet();window.app.openNotepad();">
-                <div class="sheet-action-icon" style="background:#f0f9ff;">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="#0369a1" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                </div>
-                <div class="sheet-action-text">
-                    <strong>Note Pad</strong>
-                    <span>Open handwritten scratch pad</span>
-                </div>
-            </button>
-        </div>
-    </div>
 
     <!-- MODAL: NOTE PAD ─────────────────────────────────────────────── -->
     <div id="modal-notepad" class="fixed inset-0 z-[60] hidden flex flex-col fade-in" style="background:#f5f0e8;">
@@ -1446,6 +1329,36 @@
     <div id="settings-modal" class="fixed inset-0 z-50 bg-black/80 hidden flex items-center justify-center p-4 fade-in">
         <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl">
             <h3 class="text-lg font-bold text-slate-800 mb-4">Project Settings</h3>
+
+            <!-- ── Field Sensors ── -->
+            <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Field Sensors</span>
+                    <button onclick="window.app.requestGPS();window.app.retryWeather();" class="text-[10px] font-bold text-blue-600 hover:text-blue-800">Refresh</button>
+                </div>
+                <div class="grid grid-cols-3 gap-2">
+                    <div class="bg-white border border-slate-200 rounded-lg p-2 text-center cursor-pointer hover:border-blue-300 transition" onclick="window.app.requestGPS();window.app.toggleSettings();">
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">GPS</div>
+                        <div id="gps-val" class="text-[11px] font-mono font-semibold text-slate-700 truncate">Waiting…</div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-lg p-2 text-center cursor-pointer hover:border-blue-300 transition" onclick="window.app.requestCompass();window.app.toggleSettings();">
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Heading</div>
+                        <div class="flex items-center justify-center gap-1">
+                            <svg id="compass-icon" class="w-3 h-3 transition-transform duration-500 flex-shrink-0" viewBox="0 0 24 24" fill="none">
+                                <circle cx="12" cy="12" r="10" stroke="#e2e8f0" stroke-width="2"/>
+                                <path d="M12 2L15 12H9Z" fill="#ef4444"/>
+                                <path d="M12 22L9 12H15Z" fill="#94a3b8"/>
+                            </svg>
+                            <span id="compass-val" class="text-[11px] font-mono font-semibold text-slate-700">Off</span>
+                        </div>
+                    </div>
+                    <div class="bg-white border border-slate-200 rounded-lg p-2 text-center cursor-pointer hover:border-blue-300 transition" onclick="window.app.retryWeather();window.app.toggleSettings();">
+                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Weather</div>
+                        <div id="wx-val" class="text-[11px] font-semibold text-slate-700">--</div>
+                    </div>
+                </div>
+            </div>
+
             <div class="flex items-center justify-between mb-4">
                 <span class="text-xs font-bold text-slate-500 uppercase">Connection</span>
                 <button id="offline-toggle-btn" onclick="window.app.toggleForceOffline()" class="text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition">Online</button>
@@ -1757,7 +1670,7 @@
                     console.error("IndexedDB failed to open:", e.target.error);
                     const badge = document.getElementById('outbox-badge');
                     if (badge) {
-                        badge.classList.remove('hidden', 'animate-pulse');
+                        badge.style.display = 'flex';
                         Object.assign(badge.style, { background:'#fef2f2', color:'#dc2626', fontSize:'9px' });
                         badge.innerHTML = '⚠ Offline storage unavailable';
                         badge.onclick = () => alert('Offline storage is unavailable.\n\nThis usually happens in Private/Incognito mode or when storage is full.\n\nPhotos will still upload when online but cannot be queued for later.');
@@ -1949,7 +1862,6 @@
                 this.initSensors();
                 this.bindEvents();
                 lucide.createIcons();
-                this.initCaptureBar();
                 // #9 restore last active tab
                 const lastTab = localStorage.getItem('fp_last_tab');
                 // Default to Log tab (formerly Inspect); skip if stored tab is the old 'inspect'
@@ -2449,7 +2361,7 @@
                 document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
                 const nav = $(`nav-${id}`);
                 if (nav) nav.classList.add('active');
-                localStorage.setItem('fp_last_tab', id); // #9 remember last tab
+                if (id !== 'inspect') localStorage.setItem('fp_last_tab', id);
                 if(id === 'map') {
                     setTimeout(() => {
                         if(!this.map) this.initMap();
@@ -4598,11 +4510,13 @@
                 });
             }
 
-            // ── INSPECT TAB: right panel (desktop only) ─────────────────────
+            // ── INSPECT TAB: right panel (removed — inspect tab gone) ───────
             renderRecentPanel() {
+                // Inspect tab removed; capture promoted to persistent bar.
+                // This method is kept to avoid breaking call sites but does nothing.
                 const panel = $('inspect-recent-feed');
                 const countEl = $('inspect-recent-count');
-                if (!panel) return;
+                if (!panel) return; // always returns early now
                 const recent = state.items.slice(0, 20);
                 countEl.innerText = state.items.length > 0 ? `(${state.items.length})` : '';
                 if (recent.length === 0) {
@@ -4718,8 +4632,8 @@
                 const total = state.items.length;
                 $('log-count').innerText = total > 0 ? `(${filtered.length}${filtered.length !== total ? ` of ${total}` : ''})` : '';
                 const badge = $('nav-report-badge');
-                if (total > 0) { badge.innerText = total > 99 ? '99+' : total; badge.classList.remove('hidden'); }
-                else badge.classList.add('hidden');
+                if (total > 0) { badge.innerText = total > 99 ? '99+' : total; badge.style.display = 'block'; }
+                else badge.style.display = 'none';
 
                 // #2 update Select All / Deselect All button label
                 const allSelected = filtered.length > 0 && filtered.every(i => !state.excludedReportItems.has(i.id));
@@ -7313,8 +7227,19 @@
 
                 merged.toBlob(async (blob) => {
                     if (!blob) return showToast('Export failed');
-                    const id = 'np_' + Date.now();
-                    const num = (state.items.filter(i => i.type === 'photo').reduce((m,i) => Math.max(m, i.photoNumber||0), 0)) + 1;
+
+                    // Deterministic ID — same project + page index always maps to the
+                    // same log entry so re-saving overwrites instead of duplicating.
+                    const projectKey = state.project.replace(/[^a-z0-9]/gi, '_').slice(0, 20);
+                    const id = `np_${projectKey}_p${idx}`;
+
+                    // Reuse existing photoNumber if this page was saved before,
+                    // otherwise assign the next available number.
+                    const existing = state.items.find(i => i.id === id);
+                    const num = existing?.photoNumber
+                        ?? (state.items.filter(i => i.type === 'photo')
+                               .reduce((m, i) => Math.max(m, i.photoNumber || 0), 0) + 1);
+
                     const meta = {
                         id, projectId: state.project, type: 'photo', subtype: 'notepad',
                         title: 'Note Pad — Page ' + (idx + 1),
@@ -7327,7 +7252,7 @@
                     try {
                         toggleLoader(true, 'Saving page…');
                         await withUploadTimeout(this.uploadWorkflow(blob, meta, false), getTimeoutMs() * 2);
-                        showToast('✓ Page saved to project log');
+                        showToast(existing ? '✓ Note Pad page updated' : '✓ Note Pad page saved to log');
                     } catch(e) {
                         showToast('Save failed: ' + e.message);
                     } finally {
@@ -7357,49 +7282,10 @@
 
 
             // ── CAPTURE BAR ────────────────────────────────────────────────
-            // Tap = camera, long-press = gallery (via contextmenu / pointerdown timer)
-            initCaptureBar() {
-                const btn = $('btn-camera-main');
-                if (!btn) return;
-                let holdTimer = null;
-
-                btn.addEventListener('pointerdown', () => {
-                    holdTimer = setTimeout(() => {
-                        holdTimer = null;
-                        this._triggerGallery();
-                    }, 500);
-                });
-                btn.addEventListener('pointerup', () => { clearTimeout(holdTimer); holdTimer = null; });
-                btn.addEventListener('pointercancel', () => { clearTimeout(holdTimer); holdTimer = null; });
-            }
-
             _triggerGallery() {
                 $('gallery-input')?.click();
             }
 
-            openCaptureSheet() {
-                const sheet = $('capture-sheet');
-                if (!sheet) return;
-                sheet.style.display = 'flex';
-                sheet.style.animation = 'none';
-                // Animate panel up
-                const panel = $('capture-sheet-panel');
-                panel.style.transform = 'translateY(100%)';
-                requestAnimationFrame(() => {
-                    panel.style.transition = 'transform .28s cubic-bezier(.32,.72,0,1)';
-                    panel.style.transform = 'translateY(0)';
-                });
-                lucide.createIcons();
-            }
-
-            closeCaptureSheet() {
-                const panel = $('capture-sheet-panel');
-                const sheet = $('capture-sheet');
-                if (!panel || !sheet) return;
-                panel.style.transition = 'transform .22s ease-in';
-                panel.style.transform = 'translateY(100%)';
-                setTimeout(() => { sheet.style.display = 'none'; panel.style.transition = ''; }, 230);
-            }
 
             async genCSV() {
                 const exportItems = state.items.filter(i => !state.excludedReportItems.has(i.id));
