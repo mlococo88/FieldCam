@@ -6782,7 +6782,7 @@
             // ══════════════════════════════════════════════════════════════
 
             // ── Constants ──────────────────────────────────────────────────
-            _NP_PAGE_HEIGHT = 1100;  // px per page (roughly one screen)
+            _NP_PAGE_HEIGHT = 0;     // set dynamically from scroll container height
             _NP_LINE_SPACING = 32;   // college rule
             _NP_MARGIN_LEFT  = 64;   // red margin line position
 
@@ -6800,6 +6800,14 @@
             async openNotepad() {
                 $('modal-notepad').classList.remove('hidden');
                 $('modal-notepad').style.display = 'flex';
+
+                // Measure the actual available height AFTER the modal is shown so
+                // one page = exactly one screenful of the scroll container.
+                // Wait one frame for layout to settle.
+                await new Promise(r => requestAnimationFrame(r));
+                const scroll = $('np-scroll');
+                this._NP_PAGE_HEIGHT = scroll ? Math.floor(scroll.clientHeight) : 900;
+
                 await this._npLoadState();
                 this._npRenderPages();
                 this._npBindPointers();
@@ -7092,14 +7100,14 @@
                 // IntersectionObserver: auto-add page when sentinel is visible
                 if (this._npObserver) this._npObserver.disconnect();
                 this._npObserver = new IntersectionObserver((entries) => {
-                    if (entries[0].isIntersecting) {
-                        this.notepadAddPage(true); // silent
+                    if (entries[0].isIntersecting && !this._npAddingPage) {
+                        this.notepadAddPage(true); // silent auto-expand
                     }
                 }, { root: scroll, threshold: 0.5 });
                 const sentinel = $('np-sentinel');
                 if (sentinel) this._npObserver.observe(sentinel);
 
-                // Show page indicator while scrolling
+                // Show page indicator while scrolling + snap to page boundary on stop
                 scroll.addEventListener('scroll', () => {
                     const idx = Math.floor(scroll.scrollTop / this._NP_PAGE_HEIGHT);
                     const ind = $('np-scroll-indicator');
@@ -7107,13 +7115,23 @@
                         ind.innerText = `Page ${Math.min(idx + 1, this._npPages.length)} of ${this._npPages.length}`;
                         ind.style.display = 'block';
                         clearTimeout(this._npScrollTimer);
-                        this._npScrollTimer = setTimeout(() => { ind.style.display = 'none'; }, 1500);
+                        this._npScrollTimer = setTimeout(() => {
+                            ind.style.display = 'none';
+                            // Snap to nearest page boundary when scroll stops
+                            const nearestPage = Math.round(scroll.scrollTop / this._NP_PAGE_HEIGHT);
+                            scroll.scrollTo({ top: nearestPage * this._NP_PAGE_HEIGHT, behavior: 'smooth' });
+                        }, 400);
                     }
                 }, { passive: true });
             }
 
             // ── Page management ─────────────────────────────────────────────
             notepadAddPage(silent = false) {
+                // Prevent double-add from sentinel + button firing simultaneously
+                if (this._npAddingPage) return;
+                this._npAddingPage = true;
+                setTimeout(() => { this._npAddingPage = false; }, 600);
+
                 const today = new Date().toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric', year:'numeric' });
                 // Only stamp date if this is a new day vs last page
                 const lastDate = this._npPages[this._npPages.length - 1]?.date;
@@ -7253,6 +7271,7 @@
                         toggleLoader(true, 'Saving page…');
                         await withUploadTimeout(this.uploadWorkflow(blob, meta, false), getTimeoutMs() * 2);
                         showToast(existing ? '✓ Note Pad page updated' : '✓ Note Pad page saved to log');
+                        this.closeNotepad();
                     } catch(e) {
                         showToast('Save failed: ' + e.message);
                     } finally {
