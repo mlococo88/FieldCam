@@ -5417,8 +5417,9 @@
                         bmTree.push(bmSection);
                         let y = sectionHeader(secTitle);
                         const cols = ppp === 4 ? 2 : 1;
-                        const imgMaxH = ppp === 1 ? (isLandscape ? 140 : 115) : ppp === 2 ? 90 : 65;
-                        const capH = ppp === 4 ? 20 : 28;
+                        const imgMaxH = ppp === 1 ? (isLandscape ? 135 : 110) : ppp === 2 ? 85 : 60;
+                        // capH must fit: photo# line + title + description (up to 2 lines) + GPS/Wx/Heading
+                        const capH = ppp === 4 ? 30 : 44;
                         const cellW = cols === 2 ? (contentW - 5) / 2 : contentW;
                         const cellH = imgMaxH + capH;
                         let col = 0;
@@ -5458,21 +5459,48 @@
                                 doc.rect(margin + col*(cellW+5), drawY, cellW, imgMaxH, 'FD');
                                 doc.addImage(imgData, 'JPEG', ix, drawY + (imgMaxH - dH)/2, dW, dH);
 
-                                const cy = drawY + imgMaxH + 2;
-                                const fs = ppp === 4 ? 7 : 8.5;
-                                doc.setFontSize(fs); doc.setFont("helvetica","bold"); doc.setTextColor(ar,ag,ab);
-                                const lbl = p.type==='sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber||i+1);
-                                doc.text(lbl, margin + col*(cellW+5), cy+4);
-                                doc.setFont("helvetica","normal"); doc.setTextColor(100,100,100);
-                                doc.text(p.dateString ? p.dateString.split(' ')[0] : '', margin + col*(cellW+5) + cellW, cy+4, {align:'right'});
-                                doc.setFontSize(fs); doc.setTextColor(50,50,50);
-                                doc.text(doc.splitTextToSize(p.title||p.caption||'', cellW)[0], margin+col*(cellW+5), cy+9);
+                                const cx0 = margin + col*(cellW+5);
+                                const cy  = drawY + imgMaxH + 2;
+                                const fs  = ppp === 4 ? 7 : 8.5;
+                                const fsSm = ppp === 4 ? 6 : 7.5;
+                                let ey = cy;
 
-                                let ey = cy + 14;
-                                doc.setFontSize(6.5); doc.setTextColor(120,120,120);
-                                if (o.showGPS && p.lat) { doc.text('GPS: ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5), margin+col*(cellW+5), ey); ey+=4; }
-                                if (o.showWeather && p.weather && p.weather.temp) { doc.text('Wx: ' + (p.weather.desc||'') + ' ' + p.weather.temp, margin+col*(cellW+5), ey); ey+=4; }
-                                if (o.showHeading && p.heading) { doc.text('Heading: ' + Math.round(p.heading) + '\u00b0', margin+col*(cellW+5), ey); }
+                                // ── Row 1: Photo # (accent) + date (right-aligned) ──
+                                doc.setFontSize(fs); doc.setFont('helvetica','bold'); doc.setTextColor(ar,ag,ab);
+                                const lbl = p.type==='sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber||i+1);
+                                doc.text(lbl, cx0, ey + 4);
+                                doc.setFont('helvetica','normal'); doc.setTextColor(140,140,140);
+                                doc.setFontSize(fsSm);
+                                if (p.dateString) doc.text(p.dateString, cx0 + cellW, ey + 4, {align:'right'});
+                                ey += 5.5;
+
+                                // ── Row 2: Title / location (bold, dark) ──────────
+                                if (p.title || p.caption) {
+                                    doc.setFontSize(fs); doc.setFont('helvetica','bold'); doc.setTextColor(30,30,30);
+                                    const titleLines = doc.splitTextToSize(p.title || p.caption || '', cellW);
+                                    doc.text(titleLines.slice(0,1), cx0, ey + 4);
+                                    ey += 5;
+                                }
+
+                                // ── Row 3: Description (normal, grey) ────────────
+                                const desc = p.detailedDesc || '';
+                                if (desc && desc !== p.title) {
+                                    doc.setFontSize(fsSm); doc.setFont('helvetica','normal'); doc.setTextColor(80,80,80);
+                                    const descLines = doc.splitTextToSize(desc, cellW);
+                                    const maxDescLines = ppp === 1 ? 3 : 2;
+                                    doc.text(descLines.slice(0, maxDescLines), cx0, ey + 4);
+                                    ey += Math.min(descLines.length, maxDescLines) * 3.8 + 1;
+                                }
+
+                                // ── Row 4: GPS / Weather / Heading (small, light) ─
+                                doc.setFontSize(6); doc.setFont('helvetica','normal'); doc.setTextColor(130,130,130);
+                                const metaParts = [];
+                                if (o.showGPS && p.lat) metaParts.push('GPS: ' + p.lat.toFixed(5) + ', ' + p.lng.toFixed(5));
+                                if (o.showWeather && p.weather && p.weather.temp) metaParts.push('Wx: ' + (p.weather.desc||'') + ' ' + p.weather.temp);
+                                if (o.showHeading && p.heading) metaParts.push('Hdg: ' + Math.round(p.heading) + '°');
+                                if (metaParts.length > 0) {
+                                    doc.text(metaParts.join('  ·  '), cx0, ey + 4);
+                                }
                                 doc.setTextColor(0,0,0);
                             } catch(e) { /* skip */ }
 
