@@ -1,0 +1,62 @@
+rules_version = '2';
+
+// DRAFT — not deployed. Review before publishing in the Firebase console
+// (Firestore → Rules) or with `firebase deploy --only firestore:rules`.
+//
+// The app signs every visitor in anonymously, so `request.auth != null` only
+// proves "is using the app". These rules stop scripted abuse (writes outside the
+// app's paths, wrong shapes, huge documents) but anyone who opens the site can
+// still read and change all projects. Locking that down needs real sign-in;
+// see the TODO markers.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    // TODO(real sign-in): replace with e.g. request.auth.token.email in team list
+    function member() { return signedIn(); }
+    function str(v, max) { return v is string && v.size() <= max; }
+    function optStr(d, k, max) { return !(k in d) || d[k] == null || str(d[k], max); }
+
+    match /artifacts/{appId}/public/data {
+
+      // Log entries: photos, sketches, notes, Note Pad pages, plan pages
+      match /images/{id} {
+        allow read: if member();
+        allow delete: if member();
+        allow create, update: if member()
+          && request.resource.data.id == id
+          && str(request.resource.data.projectId, 200)
+          && request.resource.data.type in ['photo', 'sketch', 'note', 'notepad']
+          && optStr(request.resource.data, 'title', 500)
+          && optStr(request.resource.data, 'caption', 2000)
+          && optStr(request.resource.data, 'detailedDesc', 20000)
+          && optStr(request.resource.data, 'text', 20000)
+          && optStr(request.resource.data, 'html', 100000);
+      }
+
+      // Project list (doc id == project name)
+      match /projects/{name} {
+        allow read: if member();
+        allow delete: if member();
+        allow create, update: if member()
+          && request.resource.data.name == name
+          && str(name, 200);
+      }
+
+      // Plan rename / category overrides
+      match /plan_meta/{id} {
+        allow read: if member();
+        allow create, update: if member()
+          && str(request.resource.data.storagePath, 1000)
+          && str(request.resource.data.displayName, 300)
+          && request.resource.data.category in ['Structural', 'Mechanical', 'Electrical', 'Civil', 'Other'];
+      }
+    }
+
+    // Everything else is closed
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
