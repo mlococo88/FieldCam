@@ -356,6 +356,47 @@
 
     .font-mono { font-variant-numeric: tabular-nums; letter-spacing: 0 !important; }
 
+    /* ── Pop-up sheets ─────────────────────────────────────────────── */
+    .sheet { background: rgb(22 33 46 / .6) !important; }
+    .sheet > div { border-radius: 18px 18px 0 0; }
+    @media (min-width: 640px) { .sheet > div { border-radius: 18px; } }
+    .sheet-head {
+        background: var(--surface) !important; border-bottom: 1px solid var(--border);
+        padding: 16px 12px 14px 20px;
+    }
+    .sheet-title { font-family: var(--font-cond); font-weight: 700; font-size: 22px; line-height: 1.15; color: var(--ink); }
+    .sheet-sub { font-size: 13px; color: var(--text-3); margin-top: 2px; }
+    .section-title { display: block; font-family: var(--font-cond); font-weight: 700; font-size: 17px; line-height: 1.2; color: var(--ink); }
+    .field-label { font-size: 13px; font-weight: 600; color: var(--text-2); line-height: 1.3; }
+    .sheet input[type=text], .sheet input[type=number], .sheet input[type=search], .sheet input:not([type]),
+    .sheet textarea, .sheet select, #note-editor {
+        border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+        color: var(--ink); font-size: 16px;   /* 16px stops iOS zooming into the field */
+    }
+    .sheet input:focus, .sheet textarea:focus, .sheet select:focus, #note-editor:focus {
+        outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgb(29 91 208 / .22);
+    }
+    .sheet input[type=checkbox], .sheet input[type=radio] { accent-color: var(--ink); }
+    .sheet .text-\[9px\], .sheet .text-\[10px\], .sheet .text-\[11px\] { font-size: 12px; }
+    /* Sheet footers: quiet bar, no grey slab */
+    .sheet .border-t.bg-slate-50 { background: var(--surface) !important; }
+    #sketch-main-row { overflow-x: auto; scrollbar-width: none; }
+    #sketch-main-row::-webkit-scrollbar { display: none; }
+    .sk-pin-left  { position: sticky; left: -12px; z-index: 2; background: var(--surface-2); }
+    .sk-pin-right.btn-primary { position: sticky; right: 0; z-index: 2;
+        box-shadow: 12px 0 0 0 var(--surface-2), -10px 0 8px -4px var(--surface-2) !important; }
+    #modal-notepad .btn-primary { white-space: nowrap; }
+    .btn-primary { background: var(--ink) !important; color: #fff !important; border-color: var(--ink) !important; box-shadow: none !important; }
+    .btn-primary:hover { background: var(--ink-2) !important; }
+    .btn-secondary { background: var(--surface) !important; color: var(--ink) !important; border: 1px solid var(--border) !important; }
+    .btn-secondary:hover { border-color: #AEB6B3 !important; background: var(--surface-2) !important; }
+    /* Export choices: one neutral icon style instead of four colours */
+    #export-modal button > div:first-child { background: var(--surface-3) !important; color: var(--ink) !important; border-radius: 10px !important; }
+    #export-modal button { border-color: var(--border) !important; background: var(--surface); }
+    #export-modal button:hover { background: var(--surface-2) !important; border-color: #AEB6B3 !important; }
+    #export-modal button .text-sm { font-size: 15px; color: var(--ink); }
+    #export-modal button .text-\[10px\] { font-size: 13px; color: var(--text-3); }
+
     /* Wide screens: keep the bar and tools compact instead of stretched edge to edge */
     @media (min-width: 768px) {
         .bottom-bar { grid-template-columns: repeat(2, 120px) 104px repeat(2, 120px); justify-content: center; }
@@ -502,7 +543,7 @@
                     <!-- Note preview -->
                     <div id="report-preview-note" class="hidden flex-1 flex flex-col overflow-hidden">
                         <div class="flex-1 p-8 overflow-y-auto">
-                            <div class="mb-2 text-[10px] font-bold text-yellow-500 uppercase tracking-wider">Note</div>
+                            <div class="field-label mb-2 text-yellow-500">Note</div>
                             <h2 id="report-preview-note-title" class="text-2xl font-bold text-white mb-4"></h2>
                             <p id="report-preview-note-body" class="text-slate-300 text-sm leading-relaxed whitespace-pre-wrap"></p>
                             <div class="mt-6 text-xs text-slate-500 font-mono" id="report-preview-note-date"></div>
@@ -545,7 +586,7 @@
                         <h2 class="text-sm font-bold text-slate-700">Plans &amp; Drawings</h2>
                         <p class="text-[10px] text-slate-400 mt-0.5">Upload PDFs to markup in the field</p>
                     </div>
-                    <label class="cursor-pointer flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-xs font-bold shadow transition active:scale-95">
+                    <label class="btn-primary cursor-pointer flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition active:scale-95">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         Upload PDF
                         <input type="file" id="pdf-upload-input" accept="application/pdf" multiple class="hidden" onchange="window.app.handlePDFUpload(event)">
@@ -573,7 +614,7 @@
             <!-- Recent PDFs section -->
             <div id="plans-recent-section" class="hidden bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex-none">
                 <div class="px-4 py-2 border-b border-slate-100 flex items-center justify-between">
-                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recently Opened</span>
+                    <span class="section-title">Recently opened</span>
                 </div>
                 <div id="plans-recent-list" class="flex gap-3 p-3 overflow-x-auto no-scrollbar"></div>
             </div>
@@ -637,9 +678,9 @@
                 🖐 Palm
             </button>
             <button onclick="window.app.savePDFPage()"
-                class="flex-none flex items-center gap-1.5 bg-blue-600 hover:bg-blue-500 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">
+                class="flex-none flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-bold transition" style="background:#fff;color:var(--ink);">
                 <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
-                Save Page
+                Save page
             </button>
         </div>
 
@@ -736,39 +777,38 @@
     </div>
 
     <!-- MODAL: Save PDF Page (caption + notes) -->
-    <div id="modal-pdf-save" class="hidden fixed inset-0 z-[67] bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div id="modal-pdf-save" class="sheet hidden fixed inset-0 z-[67] bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4">
         <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-2xl">
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                <h3 class="font-bold text-slate-800">Save Annotated Page</h3>
+            <div class="sheet-head flex justify-between items-center">
+                <h3 class="sheet-title">Save annotated page</h3>
                 <button onclick="window.app.cancelPDFSave()" class="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div class="p-4 space-y-3">
                 <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Title</label>
+                    <label class="field-label block mb-1">Title</label>
                     <input id="pdf-save-title" type="text" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
                 </div>
                 <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase block mb-1">Page Notes</label>
+                    <label class="field-label block mb-1">Page notes</label>
                     <textarea id="pdf-save-notes" rows="3" placeholder="Observations about this page…"
                         class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none"></textarea>
                 </div>
             </div>
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 pb-safe">
                 <button onclick="window.app.cancelPDFSave()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm">Cancel</button>
-                <button onclick="window.app.confirmPDFSave()" class="flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">Save to Project</button>
+                <button onclick="window.app.confirmPDFSave()" class="btn-primary flex-1 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm shadow">Save to Project</button>
             </div>
         </div>
     </div>
 
     <!-- MODAL: NOTES -->
-    <div id="modal-notes" class="fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
+    <div id="modal-notes" class="sheet fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
         <div id="notes-inner" class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh] transition-all duration-200">
 
             <!-- Header -->
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
-                <div class="flex items-center gap-2 text-slate-700 font-bold">
-                    <i data-lucide="file-text" class="w-5 h-5 text-emerald-600"></i>
-                    <span id="note-modal-title">Field Observation</span>
+            <div class="sheet-head flex justify-between items-center flex-none">
+                <div class="flex items-center gap-2">
+                    <span id="note-modal-title" class="sheet-title">Field Observation</span>
                 </div>
                 <div class="flex items-center gap-1">
                     <!-- Expand / collapse full-screen -->
@@ -791,7 +831,7 @@
 
                 <!-- Title -->
                 <div>
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                    <label class="field-label">Title or location</label>
                     <input type="text" id="note-title" placeholder="e.g. North Abutment"
                         class="w-full border border-slate-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none mt-1"
                         onfocus="window.app && window.app._scrollInputIntoView(this)"
@@ -825,7 +865,7 @@
                 <!-- Link to photo -->
                 <div>
                     <div class="flex items-center justify-between mb-1">
-                        <label class="text-[10px] font-bold text-slate-500 uppercase">Linked Photo</label>
+                        <label class="field-label">Linked photo</label>
                         <button onclick="window.app.clearNotePhotoLink()" id="btn-clear-photo-link"
                             class="hidden text-[10px] text-red-500 font-bold hover:text-red-700">Remove</button>
                     </div>
@@ -834,7 +874,7 @@
                             <img id="note-linked-img" class="w-full h-full object-cover">
                         </div>
                         <button onclick="window.app.openNotePhotoLink()" id="btn-link-photo"
-                            class="flex items-center gap-1.5 text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-2 rounded-lg hover:bg-emerald-100 transition">
+                            class="btn-secondary flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg transition">
                             <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                             Link a Photo
                         </button>
@@ -853,7 +893,7 @@
             <!-- Photo picker panel (slides in) -->
             <div id="note-photo-picker" class="hidden flex-none border-t border-slate-200 bg-slate-50 p-3">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-[10px] font-bold text-slate-500 uppercase">Select a Photo</span>
+                    <span class="section-title">Select a photo</span>
                     <button onclick="window.app.closeNotePhotoLink()" class="text-slate-400 hover:text-slate-600 text-lg leading-none">✕</button>
                 </div>
                 <div id="note-photo-picker-list" class="flex gap-2 overflow-x-auto pb-1 no-scrollbar"></div>
@@ -862,7 +902,7 @@
             <!-- Footer -->
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
                 <button onclick="window.app.closeNotes()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
-                <button id="btn-save-note" onclick="window.app.saveNote()" class="flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow hover:bg-emerald-700">Save Note</button>
+                <button id="btn-save-note" onclick="window.app.saveNote()" class="btn-primary flex-1 py-3 bg-emerald-600 text-white font-bold rounded-xl text-sm shadow hover:bg-emerald-700">Save Note</button>
             </div>
         </div>
     </div>
@@ -877,7 +917,7 @@
     </style>
 
     <!-- MODAL: CAPTION / EDIT -->
-    <div id="modal-caption" class="fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
+    <div id="modal-caption" class="sheet fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
         <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="relative bg-slate-100 flex-none h-64 flex items-center justify-center border-b border-slate-200">
                 <img id="modal-img-preview" class="max-h-full max-w-full object-contain">
@@ -889,13 +929,13 @@
                 </button>
             </div>
             <div class="p-5 flex-1 overflow-y-auto">
-                <h3 class="text-sm font-bold text-slate-800 uppercase mb-3">
+                <h3 class="sheet-title mb-3">
                     <span id="modal-title-text">Image Details</span>
                 </h3>
                 <div class="space-y-3">
                     <div>
                         <div class="flex justify-between items-center mb-1">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                            <label class="field-label">Title or location</label>
                             <div class="flex items-center gap-1.5">
                                 <button type="button" id="use-last-title-btn" onclick="window.app.useLastTitle()" class="hidden text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full transition">
                                     Use Last
@@ -909,7 +949,7 @@
                     </div>
                     <div>
                         <div class="flex justify-between items-center mb-1">
-                            <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                            <label class="field-label">Description</label>
                             <div class="flex items-center gap-1.5">
                                 <button type="button" id="use-last-desc-btn" onclick="window.app.useLastDesc()" class="hidden text-[10px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-full transition">
                                     Use Last
@@ -924,9 +964,10 @@
                 </div>
             </div>
             <div class="p-3 border-t border-slate-200 bg-slate-50 flex-none">
-                <label class="flex items-center gap-2 text-xs text-slate-500 cursor-pointer select-none mb-2">
-                    <input type="checkbox" id="burn-toggle" checked class="w-3.5 h-3.5 accent-blue-600 rounded">
-                    <span id="overlay-status">Burn GPS/date overlay into photo</span>
+                <label class="flex items-center gap-2 text-sm text-slate-600 cursor-pointer select-none mb-2">
+                    <input type="checkbox" id="burn-toggle" checked class="w-4 h-4 rounded">
+                    <span>Stamp date and GPS on the photo</span>
+                    <span id="overlay-status" class="hidden"></span>
                 </label>
                 <label id="reburn-row" class="hidden items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 cursor-pointer select-none mb-2">
                     <input type="checkbox" id="reburn-toggle" checked class="w-3.5 h-3.5 accent-amber-600 rounded">
@@ -934,7 +975,7 @@
                 </label>
                 <div class="flex gap-3">
                     <button onclick="window.app.closeCaptionModal()" class="flex-1 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Cancel</button>
-                    <button onclick="window.app.confirmUpload()" id="btn-save-upload" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Save</button>
+                    <button onclick="window.app.confirmUpload()" id="btn-save-upload" class="btn-primary flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Save</button>
                 </div>
             </div>
         </div>
@@ -977,8 +1018,8 @@
 
             <!-- Export current page -->
             <button onclick="window.app.exportNotepadPage()" title="Save page to project log"
-                style="padding:5px 10px;border-radius:8px;border:none;background:#0369a1;color:white;font-size:11px;font-weight:700;cursor:pointer;">
-                Save Page
+                class="btn-primary" style="padding:8px 12px;border-radius:9px;border:none;font-size:13px;font-weight:700;cursor:pointer;">
+                Save page
             </button>
         </div>
 
@@ -1015,9 +1056,9 @@
         <!-- Row 1: top bar -->
         <div id="sketch-toolbar" class="flex-none border-b border-slate-200 bg-slate-50 transition-all duration-200">
 
-            <!-- Main toolbar row -->
-            <div class="flex items-center gap-1.5 px-3 py-2">
-                <button onclick="window.app.closeSketch()" class="text-slate-500 font-medium text-sm mr-1 flex-none">✕</button>
+            <!-- Main toolbar row: scrolls sideways on phones; ✕ and Done stay pinned -->
+            <div id="sketch-main-row" class="flex items-center gap-1.5 px-3 py-2">
+                <button onclick="window.app.closeSketch()" class="sk-pin-left text-slate-500 font-medium text-lg mr-1 flex-none w-9 h-9" title="Close sketch">✕</button>
 
                 <!-- Tool selector -->
                 <div class="flex bg-slate-200 rounded-lg p-0.5 gap-0.5 flex-none">
@@ -1069,18 +1110,18 @@
                     <span id="sk-page-label" class="text-[10px] font-bold text-slate-500 min-w-[40px] text-center">1 / 1</span>
                     <button onclick="window.app.sketchNextPage()" class="p-1 text-slate-400 hover:text-slate-700" id="sk-next-page" title="Next page / Add page">›</button>
                 </div>
-                <button onclick="window.app.saveSketch()" class="ml-2 bg-blue-600 text-white font-bold text-sm px-4 py-1.5 rounded-lg flex-none">Done</button>
+                <button onclick="window.app.saveSketch()" class="sk-pin-right btn-primary ml-2 bg-blue-600 text-white font-bold text-sm px-4 py-1.5 rounded-lg flex-none">Done</button>
             </div>
 
             <!-- Background selector row -->
             <div class="flex items-center gap-2 px-3 pb-2">
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Background:</span>
+                <span class="field-label">Background</span>
                 <div class="flex bg-slate-100 rounded-lg p-0.5 gap-0.5">
                     <button onclick="window.app.setSketchBg('plain')" id="sketch-bg-plain"   class="px-2 py-0.5 rounded text-[10px] font-bold transition bg-white shadow text-slate-800">Plain</button>
                     <button onclick="window.app.setSketchBg('lines')" id="sketch-bg-lines"   class="px-2 py-0.5 rounded text-[10px] font-bold transition text-slate-500">Lines</button>
                     <button onclick="window.app.setSketchBg('grid')"  id="sketch-bg-grid"    class="px-2 py-0.5 rounded text-[10px] font-bold transition text-slate-500">Grid</button>
                 </div>
-                <span class="text-[9px] font-bold text-slate-400 uppercase tracking-wider ml-3">Opacity:</span>
+                <span class="field-label ml-3">Opacity</span>
                 <span id="sketch-opacity-label" class="text-[10px] font-bold text-slate-600 w-8">100%</span>
                 <button onclick="window.app.clearSketch()" class="ml-auto text-[10px] font-bold text-red-500 px-3 py-1 hover:bg-red-50 rounded-lg">Clear</button>
             </div>
@@ -1109,10 +1150,10 @@
         <div class="bg-white flex flex-col h-full max-h-full">
 
             <!-- Header -->
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
+            <div class="sheet-head flex justify-between items-center flex-none">
                 <div>
-                    <h2 class="font-bold text-slate-800">Review Series</h2>
-                    <p id="queue-subtitle" class="text-xs text-slate-400 mt-0.5"></p>
+                    <h2 class="sheet-title">Review photos</h2>
+                    <p id="queue-subtitle" class="sheet-sub"></p>
                 </div>
                 <button onclick="window.app.cancelQueue()" class="p-1.5 rounded-full hover:bg-slate-200 text-slate-500">
                     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1137,7 +1178,7 @@
             <!-- Shared caption (shown in "same for all" mode) -->
             <div id="queue-shared-caption" class="px-4 pt-3 pb-2 border-b border-slate-100 flex-none space-y-2">
                 <div class="flex justify-between items-center">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                    <label class="field-label">Title or location</label>
                     <div class="flex gap-2">
                         <button id="queue-use-last-btn" onclick="window.app.useLastCaptionQueue()" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Use Last</button>
                         <button onclick="window.app.clearField('queue-title')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
@@ -1145,7 +1186,7 @@
                 </div>
                 <input type="text" id="queue-title" placeholder="e.g. South Abutment" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)">
                 <div class="flex justify-between items-center">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                    <label class="field-label">Description</label>
                     <button onclick="window.app.clearField('queue-desc')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
                 </div>
                 <textarea id="queue-desc" rows="2" placeholder="Optional details..." class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
@@ -1174,7 +1215,7 @@
                         Add More
                     </button>
                     <button onclick="window.app.uploadQueue()" id="queue-upload-btn"
-                        class="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
+                        class="btn-primary flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition">
                         Upload All
                     </button>
                 </div>
@@ -1183,7 +1224,7 @@
     </div>
 
     <!-- MODAL: PER-PHOTO CAPTION (used in "caption each" mode) -->
-    <div id="modal-per-photo" class="fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
+    <div id="modal-per-photo" class="sheet fixed inset-0 hidden flex flex-col justify-end sm:justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.9);">
         <div class="bg-white w-full max-w-md mx-auto rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[90vh]">
             <div class="relative bg-slate-100 flex-none h-52 flex items-center justify-center border-b border-slate-200">
                 <img id="per-photo-img" class="max-h-full max-w-full object-contain">
@@ -1191,7 +1232,7 @@
             </div>
             <div class="p-4 flex-1 overflow-y-auto space-y-3">
                 <div class="flex justify-between items-center">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Title / Location</label>
+                    <label class="field-label">Title or location</label>
                     <div class="flex gap-2">
                         <button onclick="window.app.useLastCaptionPerPhoto()" id="per-photo-use-last" class="hidden text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Use Last</button>
                         <button onclick="window.app.clearField('per-photo-title')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
@@ -1199,27 +1240,27 @@
                 </div>
                 <input type="text" id="per-photo-title" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)">
                 <div class="flex justify-between items-center">
-                    <label class="text-[10px] font-bold text-slate-500 uppercase">Description</label>
+                    <label class="field-label">Description</label>
                     <button onclick="window.app.clearField('per-photo-desc')" class="text-[10px] font-bold text-slate-400 hover:text-red-500 bg-slate-100 px-2 py-0.5 rounded-full">Clear</button>
                 </div>
                 <textarea id="per-photo-desc" rows="3" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm resize-none focus:ring-2 focus:ring-blue-500 outline-none" onfocus="window.app && window.app._scrollInputIntoView(this)"></textarea>
             </div>
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
                 <button onclick="window.app.perPhotoBack()" id="per-photo-back-btn" class="px-4 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-50">Back</button>
-                <button onclick="window.app.perPhotoNext()" id="per-photo-next-btn" class="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Next →</button>
+                <button onclick="window.app.perPhotoNext()" id="per-photo-next-btn" class="btn-primary flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700">Next →</button>
             </div>
         </div>
     </div>
 
     <!-- MODAL: OUTBOX VIEWER -->
-    <div id="modal-outbox" class="fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
+    <div id="modal-outbox" class="sheet fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white w-full max-w-md rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[85vh] shadow-2xl">
 
             <!-- Header -->
-            <div class="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
+            <div class="sheet-head flex justify-between items-center flex-none">
                 <div>
-                    <h3 class="font-bold text-slate-800">Pending Uploads</h3>
-                    <p id="outbox-viewer-subtitle" class="text-[11px] text-slate-400 mt-0.5"></p>
+                    <h3 class="sheet-title">Waiting to upload</h3>
+                    <p id="outbox-viewer-subtitle" class="sheet-sub"></p>
                 </div>
                 <button onclick="document.getElementById('modal-outbox').classList.add('hidden')" class="p-1.5 rounded-full hover:bg-slate-200 text-slate-500">
                     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1229,7 +1270,7 @@
             <!-- Storage quota bar -->
             <div id="outbox-quota-wrap" class="px-4 pt-3 pb-0 flex-none hidden">
                 <div class="flex justify-between text-[10px] font-bold mb-1">
-                    <span class="text-slate-500 uppercase">Device Storage</span>
+                    <span class="section-title">Device storage</span>
                     <span id="outbox-quota-text" class="text-slate-400"></span>
                 </div>
                 <div class="w-full bg-slate-200 rounded-full h-1.5 mb-3">
@@ -1244,9 +1285,9 @@
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex-none pb-safe space-y-2">
                 <div class="flex gap-2">
                     <button onclick="window.app.syncOutbox(false)" id="outbox-sync-btn"
-                        class="flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition flex items-center justify-center gap-2">
+                        class="btn-primary flex-1 py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm shadow hover:bg-blue-700 active:scale-95 transition flex items-center justify-center gap-2">
                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                        Sync Now
+                        Upload now
                     </button>
                     <button onclick="window.app.retryFailedItems()" id="outbox-retry-btn"
                         class="hidden px-4 py-2.5 bg-orange-100 text-orange-700 font-bold rounded-xl text-sm hover:bg-orange-200 active:scale-95 transition">
@@ -1262,14 +1303,14 @@
     </div>
 
     <!-- MODAL: PDF REPORT OPTIONS -->
-    <div id="modal-pdf-options" class="fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
+    <div id="modal-pdf-options" class="sheet fixed inset-0 hidden flex items-end sm:items-center justify-center p-0 sm:p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white w-full max-w-lg rounded-t-2xl sm:rounded-2xl overflow-hidden flex flex-col max-h-[92vh] shadow-2xl">
 
             <!-- Header -->
-            <div class="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center flex-none">
+            <div class="sheet-head flex justify-between items-center flex-none">
                 <div>
-                    <h3 class="font-bold text-slate-800 text-lg">Report Options</h3>
-                    <p class="text-xs text-slate-400 mt-0.5">Settings are saved automatically</p>
+                    <h3 class="sheet-title">PDF report</h3>
+                    <p class="sheet-sub">Your choices are saved for next time</p>
                 </div>
                 <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden')" class="p-1.5 rounded-full hover:bg-slate-200 text-slate-500">
                     <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
@@ -1281,7 +1322,7 @@
                 <!-- COVER PAGE INFO -->
                 <div class="p-5 border-b border-slate-100">
                     <div class="flex items-center justify-between mb-3">
-                        <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Cover Page</h4>
+                        <h4 class="section-title">Cover page</h4>
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="pdf-opt-cover" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
                             <span class="text-xs text-slate-500">Include</span>
@@ -1290,31 +1331,31 @@
                     <div id="pdf-cover-fields" class="space-y-2">
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Report Title</label>
+                                <label class="field-label">Report title</label>
                                 <input type="text" id="pdf-title" placeholder="Field Inspection Report" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
                             </div>
                             <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Report Type</label>
+                                <label class="field-label">Report type</label>
                                 <input type="text" id="pdf-type" placeholder="e.g. Routine Annual Inspection" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Inspector Name</label>
+                                <label class="field-label">Inspector name</label>
                                 <input type="text" id="pdf-inspector" placeholder="Your name" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
                             </div>
                             <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Company / Firm</label>
+                                <label class="field-label">Company or firm</label>
                                 <input type="text" id="pdf-company" placeholder="Organization" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Client / Owner</label>
+                                <label class="field-label">Client or owner</label>
                                 <input type="text" id="pdf-client" placeholder="Client name" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
                             </div>
                             <div>
-                                <label class="text-[10px] font-bold text-slate-400 uppercase">Job / Contract #</label>
+                                <label class="field-label">Job or contract #</label>
                                 <input type="text" id="pdf-jobnum" placeholder="Job number" class="w-full border border-slate-200 rounded-lg p-2 text-sm mt-0.5 focus:ring-2 focus:ring-blue-500 outline-none" oninput="window.app.savePDFOptions()">
                             </div>
                         </div>
@@ -1323,17 +1364,17 @@
 
                 <!-- PAGE LAYOUT -->
                 <div class="p-5 border-b border-slate-100">
-                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Page Layout</h4>
+                    <h4 class="section-title mb-3">Page layout</h4>
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Orientation</label>
+                            <label class="field-label block mb-1">Orientation</label>
                             <div class="flex bg-slate-100 rounded-lg p-0.5">
                                 <button id="pdf-orient-portrait" onclick="window.app.setPDFOption('orientation','portrait')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">Portrait</button>
                                 <button id="pdf-orient-landscape" onclick="window.app.setPDFOption('orientation','landscape')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Landscape</button>
                             </div>
                         </div>
                         <div>
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Photos Per Page</label>
+                            <label class="field-label block mb-1">Photos per page</label>
                             <div class="flex bg-slate-100 rounded-lg p-0.5">
                                 <button id="pdf-ppp-1" onclick="window.app.setPDFOption('photosPerPage',1)" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">1</button>
                                 <button id="pdf-ppp-2" onclick="window.app.setPDFOption('photosPerPage',2)" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">2</button>
@@ -1341,14 +1382,14 @@
                             </div>
                         </div>
                         <div>
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Sort Order</label>
+                            <label class="field-label block mb-1">Sort order</label>
                             <div class="flex bg-slate-100 rounded-lg p-0.5">
                                 <button id="pdf-sort-asc" onclick="window.app.setPDFOption('sortOrder','asc')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">Oldest First</button>
                                 <button id="pdf-sort-desc" onclick="window.app.setPDFOption('sortOrder','desc')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Newest First</button>
                             </div>
                         </div>
                         <div>
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Accent Color</label>
+                            <label class="field-label block mb-1">Accent colour</label>
                             <div class="flex gap-2 mt-1">
                                 <button onclick="window.app.setPDFOption('accentColor','#2563eb')" id="pdf-color-blue" class="w-7 h-7 rounded-full bg-blue-600 border-2 border-white shadow ring-2 ring-blue-600"></button>
                                 <button onclick="window.app.setPDFOption('accentColor','#dc2626')" id="pdf-color-red" class="w-7 h-7 rounded-full bg-red-600 border-2 border-white shadow"></button>
@@ -1362,7 +1403,7 @@
 
                 <!-- SECTIONS -->
                 <div class="p-5 border-b border-slate-100">
-                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Sections to Include</h4>
+                    <h4 class="section-title mb-3">Sections to include</h4>
                     <div class="grid grid-cols-2 gap-y-2 gap-x-4">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="pdf-sec-index" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
@@ -1410,7 +1451,7 @@
 
                 <!-- PHOTO OPTIONS -->
                 <div class="p-5 border-b border-slate-100">
-                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Photo Options</h4>
+                    <h4 class="section-title mb-3">Photo options</h4>
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="pdf-opt-raw" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
@@ -1436,14 +1477,14 @@
 
                 <!-- HEADER / FOOTER -->
                 <div class="p-5">
-                    <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Header &amp; Footer</h4>
+                    <h4 class="section-title mb-3">Header and footer</h4>
                     <div class="space-y-2">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" id="pdf-opt-runningheader" class="w-4 h-4 accent-blue-600 rounded" onchange="window.app.savePDFOptions()">
                             <span class="text-sm text-slate-700">Running header on every page</span>
                         </label>
                         <div>
-                            <label class="text-[10px] font-bold text-slate-400 uppercase block mb-1">Footer Content</label>
+                            <label class="field-label block mb-1">Footer content</label>
                             <div class="flex bg-slate-100 rounded-lg p-0.5">
                                 <button id="pdf-footer-pagenum" onclick="window.app.setPDFOption('footer','pagenum')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition bg-white shadow text-slate-800">Page #</button>
                                 <button id="pdf-footer-pageofpage" onclick="window.app.setPDFOption('footer','pageofpage')" class="flex-1 py-1.5 rounded-md text-xs font-bold transition text-slate-500">Page X of Y</button>
@@ -1457,7 +1498,7 @@
             <!-- Generate button -->
             <div class="p-4 border-t border-slate-200 bg-slate-50 flex gap-3 flex-none pb-safe">
                 <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden')" class="px-5 py-3 bg-white border border-slate-300 text-slate-700 font-bold rounded-xl text-sm">Cancel</button>
-                <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden'); window.app.genPDF()" class="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow flex items-center justify-center gap-2">
+                <button onclick="document.getElementById('modal-pdf-options').classList.add('hidden'); window.app.genPDF()" class="btn-primary flex-1 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm shadow flex items-center justify-center gap-2">
                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                     Generate PDF
                 </button>
@@ -1466,51 +1507,51 @@
     </div>
 
     <!-- MODAL: EXPORT -->
-    <div id="export-modal" class="fixed inset-0 hidden flex items-center justify-center p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
+    <div id="export-modal" class="sheet fixed inset-0 hidden flex items-center justify-center p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl">
-            <div class="p-5 border-b border-slate-100 flex justify-between items-center">
-                <h3 class="font-bold text-slate-800">Export Options</h3>
+            <div class="sheet-head flex justify-between items-center">
+                <h3 class="sheet-title">Export</h3>
                 <button onclick="document.getElementById('export-modal').classList.add('hidden')" class="text-slate-400 hover:text-slate-600"><i data-lucide="x" class="w-5 h-5"></i></button>
             </div>
             <div class="p-5 space-y-3">
                 <button onclick="document.getElementById('export-modal').classList.add('hidden'); window.app.openPDFOptions()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-red-50 hover:border-red-200 transition group">
                     <div class="w-10 h-10 rounded-full bg-red-100 text-red-600 flex items-center justify-center mr-3"><i data-lucide="file-text" class="w-5 h-5"></i></div>
-                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">PDF Report</div><div class="text-[10px] text-slate-500">Configure & generate</div></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">PDF report</div><div class="text-[10px] text-slate-500">Choose sections, then download</div></div>
                 </button>
                 <button onclick="window.app.genCSV()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-green-50 hover:border-green-200 transition group">
                     <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center mr-3"><i data-lucide="table" class="w-5 h-5"></i></div>
-                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">CSV Data</div><div class="text-[10px] text-slate-500">Spreadsheet compatible</div></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Spreadsheet (CSV)</div><div class="text-[10px] text-slate-500">Every entry with captions and GPS</div></div>
                 </button>
                 <button onclick="window.app.genZip()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-blue-50 hover:border-blue-200 transition group">
                     <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mr-3"><i data-lucide="archive" class="w-5 h-5"></i></div>
-                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Photos ZIP</div><div class="text-[10px] text-slate-500">Full resolution archive</div></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Photos (ZIP)</div><div class="text-[10px] text-slate-500">With the date and GPS overlay</div></div>
                 </button>
                 <button onclick="window.app.genRawZip()" class="w-full flex items-center p-3 rounded-xl border border-slate-200 hover:bg-orange-50 hover:border-orange-200 transition group">
                     <div class="w-10 h-10 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mr-3"><i data-lucide="camera-off" class="w-5 h-5"></i></div>
-                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Raw Images ZIP</div><div class="text-[10px] text-slate-500">Originals without overlay</div></div>
+                    <div class="text-left"><div class="font-bold text-slate-700 text-sm">Original photos (ZIP)</div><div class="text-[10px] text-slate-500">As taken, without the overlay</div></div>
                 </button>
             </div>
         </div>
     </div>
 
     <!-- MODAL: SETTINGS -->
-    <div id="settings-modal" class="fixed inset-0 hidden flex items-center justify-center p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
+    <div id="settings-modal" class="sheet fixed inset-0 hidden flex items-center justify-center p-4 fade-in" style="z-index:200;background:rgba(0,0,0,0.8);">
         <div class="bg-white rounded-2xl w-full max-w-xs p-6 shadow-2xl">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Project Settings</h3>
+            <h3 class="sheet-title mb-4">Project and settings</h3>
 
             <!-- ── Field Sensors ── -->
             <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 mb-4">
                 <div class="flex items-center justify-between mb-2">
-                    <span class="text-xs font-bold text-slate-500 uppercase tracking-wider">Field Sensors</span>
+                    <span class="section-title">Field sensors</span>
                     <button onclick="window.app.requestGPS();window.app.retryWeather();" class="text-[10px] font-bold text-blue-600 hover:text-blue-800">Refresh</button>
                 </div>
                 <div class="grid grid-cols-3 gap-2">
                     <div class="bg-white border border-slate-200 rounded-lg p-2 text-center cursor-pointer hover:border-blue-300 transition" onclick="window.app.requestGPS();window.app.toggleSettings();">
-                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">GPS</div>
+                        <div class="field-label mb-1">GPS</div>
                         <div id="gps-val" class="text-[11px] font-mono font-semibold text-slate-700 truncate">Waiting…</div>
                     </div>
                     <div class="bg-white border border-slate-200 rounded-lg p-2 text-center cursor-pointer hover:border-blue-300 transition" onclick="window.app.requestCompass();window.app.toggleSettings();">
-                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Heading</div>
+                        <div class="field-label mb-1">Heading</div>
                         <div class="flex items-center justify-center gap-1">
                             <svg id="compass-icon" class="w-3 h-3 transition-transform duration-500 flex-shrink-0" viewBox="0 0 24 24" fill="none">
                                 <circle cx="12" cy="12" r="10" stroke="#e2e8f0" stroke-width="2"/>
@@ -1521,22 +1562,22 @@
                         </div>
                     </div>
                     <div class="bg-white border border-slate-200 rounded-lg p-2 text-center cursor-pointer hover:border-blue-300 transition" onclick="window.app.retryWeather();window.app.toggleSettings();">
-                        <div class="text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">Weather</div>
+                        <div class="field-label mb-1">Weather</div>
                         <div id="wx-val" class="text-[11px] font-semibold text-slate-700">--</div>
                     </div>
                 </div>
             </div>
 
             <div class="flex items-center justify-between mb-4">
-                <span class="text-xs font-bold text-slate-500 uppercase">Connection</span>
+                <span class="field-label">Connection</span>
                 <button id="offline-toggle-btn" onclick="window.app.toggleForceOffline()" class="text-xs font-bold px-3 py-1 rounded bg-green-100 text-green-700 border border-green-200 transition">Online</button>
             </div>
 
             <!-- ── Upload Timeout Setting ── NEW ── -->
             <div class="flex items-center justify-between mb-4">
                 <div>
-                    <span class="text-xs font-bold text-slate-500 uppercase">Upload Timeout</span>
-                    <p class="text-[10px] text-slate-400">Auto-save offline if upload stalls</p>
+                    <span class="field-label">Upload timeout</span>
+                    <p class="text-xs text-slate-500">Save to the outbox if an upload takes longer</p>
                 </div>
                 <div class="flex items-center gap-1">
                     <input type="number" id="timeout-setting" value="20" min="3" max="60"
@@ -1546,36 +1587,36 @@
                 </div>
             </div>
 
-            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">Active Project</label>
+            <label class="field-label mb-1 block">Active project</label>
             <select id="project-select" onchange="window.app.switchProject(this.value)" class="w-full border border-slate-300 rounded-lg p-2.5 text-sm mb-1 bg-white"></select>
             <div class="text-right mb-3">
-                <button onclick="window.app.deleteCurrentProject()" class="text-[10px] font-bold text-red-500 hover:text-red-700 underline">Delete Project & Data</button>
+                <button onclick="window.app.deleteCurrentProject()" class="text-sm font-semibold text-red-600 hover:text-red-700 underline underline-offset-2">Delete this project…</button>
             </div>
             <div class="border-t border-slate-200 my-4"></div>
             <div class="mb-4">
                 <div class="flex justify-between items-end mb-1">
-                    <span class="text-xs font-bold text-slate-500 uppercase">Storage Used</span>
+                    <span class="field-label">Storage used</span>
                     <span id="storage-text" class="text-[10px] text-slate-400">0 MB / 5 GB</span>
                 </div>
                 <div class="w-full bg-slate-200 rounded-full h-2 mb-2">
                     <div id="storage-bar" class="bg-blue-600 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
                 </div>
-                <button onclick="window.app.calculateStorageUsage()" class="w-full text-xs font-bold text-blue-600 border border-blue-200 rounded py-1 hover:bg-blue-50 transition">Check Usage</button>
+                <button onclick="window.app.calculateStorageUsage()" class="btn-secondary w-full text-sm font-semibold rounded-lg py-2 transition">Check usage</button>
             </div>
             <div class="border-t border-slate-200 my-4"></div>
-            <label class="text-xs font-bold text-slate-500 uppercase mb-1 block">New Project</label>
+            <label class="field-label mb-1 block">New project</label>
             <div class="flex gap-2 mb-4">
                 <input type="text" id="new-proj-name" placeholder="Name..." class="flex-1 border border-slate-300 rounded-lg p-2 text-sm">
-                <button onclick="window.app.createProject()" class="bg-blue-600 text-white rounded-lg px-4 font-bold text-sm">Add</button>
+                <button onclick="window.app.createProject()" class="btn-primary bg-blue-600 text-white rounded-lg px-4 font-bold text-sm">Add</button>
             </div>
             <div class="border-t border-slate-200 my-4"></div>
-            <label class="text-xs font-bold text-slate-500 uppercase mb-2 block">Photo Management</label>
-            <button onclick="window.app.renumberPhotos()" class="w-full py-2.5 mb-2 bg-amber-50 border border-amber-200 text-amber-800 font-bold rounded-xl text-sm hover:bg-amber-100 flex items-center justify-center gap-2">
+            <label class="section-title mb-2 block">Photo management</label>
+            <button onclick="window.app.renumberPhotos()" class="btn-secondary w-full py-2.5 mb-2 font-bold rounded-xl text-sm flex items-center justify-center gap-2">
                 <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h7"/><path d="M15 15l2 2 4-4"/></svg>
-                Renumber &amp; Re-burn Overlays
+                Renumber photos and update overlays
             </button>
-            <p class="text-[10px] text-slate-400 mb-4 text-center">Sorts photos chronologically, updates numbers, and re-burns the overlay on each photo with the current number and caption.</p>
-            <button onclick="window.app.toggleSettings()" class="w-full py-3 bg-slate-100 text-slate-700 font-bold rounded-xl text-sm hover:bg-slate-200">Close</button>
+            <p class="text-xs text-slate-500 mb-4 text-center">Sorts photos chronologically, updates numbers, and re-burns the overlay on each photo with the current number and caption.</p>
+            <button onclick="window.app.toggleSettings()" class="btn-secondary w-full py-3 font-bold rounded-xl text-sm">Done</button>
         </div>
     </div>
 
@@ -1662,10 +1703,10 @@
 
             <!-- Done button -->
             <button onclick="window.app.closeCameraAndReview()" id="camera-done-btn"
-                class="w-12 h-12 rounded-lg bg-blue-600 text-white text-xs font-bold flex-none items-center justify-center shadow hover:bg-blue-700 transition hidden">
+                class="h-12 min-w-[84px] px-4 rounded-full text-sm font-bold flex-none flex items-center justify-center hidden" style="background:#fff;color:var(--ink);">
                 Done
             </button>
-            <div class="w-12 h-12 flex-none" id="camera-done-placeholder"></div>
+            <div class="min-w-[84px] h-12 flex-none" id="camera-done-placeholder"></div>
         </div>
     </div>
 
@@ -2623,17 +2664,12 @@
             }
 
             updateOverlayStatus() {
+                // The label stays put; only warn about what's missing from the stamp
                 const el = $('overlay-status');
                 if (!el) return;
-                if (!$('burn-toggle') || !($('burn-toggle')?.checked ?? true)) { el.classList.add('hidden'); return; }
-                const parts = [];
-                if (state.location) parts.push('GPS ✓');
-                else parts.push('GPS –');
-                if (state.weather.temp) parts.push('Wx ✓');
-                else parts.push('Wx –');
-                el.innerText = parts.join('  ');
-                el.className = `text-[10px] font-mono ${state.location && state.weather.temp ? 'text-green-500' : 'text-amber-500'}`;
-                el.classList.remove('hidden');
+                const missing = [!state.location && 'no GPS fix yet', !state.weather.temp && 'no weather'].filter(Boolean);
+                el.innerText = missing.length ? `(${missing.join(', ')})` : '';
+                el.className = missing.length ? 'text-amber-700' : 'hidden';
             }
 
             switchTab(id) {
@@ -3614,7 +3650,7 @@
                 $('cap-title').value = '';
                 $('cap-desc').value = '';
                 const noun = state.queue.every(i => i.type === 'sketch') ? 'Sketch Pages' : 'Photos';
-                $('modal-title-text').innerText = `Batch Upload (${count} ${noun})`;
+                $('modal-title-text').innerText = `${count} ${noun.toLowerCase()} to upload`;
                 $('btn-save-upload').innerText = `Upload ${count} ${noun}`;
                 // Reset anything a previous caption edit left behind — otherwise the
                 // button still calls updateEntry() and overwrites that earlier entry
@@ -3678,7 +3714,7 @@
                 $('modal-img-preview').src = url;
                 $('cap-title').value = isEdit ? (state.currentItem.title || '') : '';
                 $('cap-desc').value = isEdit ? (state.currentItem.detailedDesc || '') : '';
-                $('modal-title-text').innerText = isEdit ? "Edit Entry" : (isGallery ? "Import Details" : "New Photo Details");
+                $('modal-title-text').innerText = isEdit ? "Edit entry" : (isGallery ? "Imported photo" : "New photo");
                 const badge = $('exif-badge');
                 (isGallery && state.tempMeta && state.tempMeta.lat) ? badge.classList.remove('hidden') : badge.classList.add('hidden');
 
@@ -4964,7 +5000,7 @@
                     btn.className = 'flex-none flex flex-col items-center gap-1 group';
                     btn.onclick = () => { this._noteLinkedPhotoId = p.id; this._renderLinkedPhoto(p.id); this.closeNotePhotoLink(); };
                     btn.innerHTML = `
-                        <div class="w-14 h-14 rounded-lg overflow-hidden border-2 border-transparent group-hover:border-emerald-400 transition">
+                        <div class="w-14 h-14 rounded-lg overflow-hidden border-2 border-transparent group-hover:border-blue-400 transition">
                             <img src="${esc(p.url)}" class="w-full h-full object-cover" onerror="this.parentElement.parentElement.style.display='none'">
                         </div>
                         <span class="text-[9px] text-slate-500 font-bold">#${esc(p.photoNumber || '?')}</span>`;
@@ -5409,7 +5445,7 @@
                             ${thumbHtml}
                             <div style="padding:10px;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                                    <span style="font-size:9px;font-weight:700;color:${typeBadgeColor};text-transform:uppercase;letter-spacing:0.05em;">${typeLabel}</span>
+                                    <span style="font-size:12px;font-weight:700;color:${typeBadgeColor};">${typeLabel}</span>
                                     <span style="font-size:9px;color:#94a3b8;">${esc(i.dateString ? i.dateString.split(' ')[0] : '')}</span>
                                 </div>
                                 <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
