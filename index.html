@@ -1904,6 +1904,9 @@
             return Promise.race([promise, timeout]).finally(() => { clearTimeout(timer); hideTimeoutBar(); });
         }
 
+        // Map tiles for the Map tab and the PDF site map (no API key needed)
+        const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+
         // Highest photo number in this project, counting photos still waiting in the
         // offline outbox — otherwise every photo taken offline got the same number
         const maxPhotoNumber = () => {
@@ -5390,7 +5393,12 @@
 
             initMap() {
                 this.map = L.map('map-container').setView([39.8, -98.5], 4);
-                L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { attribution: '&copy; OpenStreetMap &copy; CARTO', maxZoom: 20 }).addTo(this.map);
+                // OpenStreetMap's standard tiles: free, no key (CARTO basemaps started requiring
+                // a key in Sept 2026). Their policy requires this attribution to stay visible.
+                L.tileLayer(OSM_TILE_URL, {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+                    maxZoom: 19
+                }).addTo(this.map);
                 this.markers = L.layerGroup().addTo(this.map);
             }
 
@@ -7365,16 +7373,15 @@
                     for (let ty = tileY0; ty <= tileY1; ty++) {
                         const wtx = ((tx % maxTile) + maxTile) % maxTile; // wrap
                         if (ty < 0 || ty >= maxTile) continue;
-                        // CartoDB Voyager — same tiles as the in-app Leaflet map
-                        const subdomain = ['a','b','c','d'][(tx + ty) % 4];
-                        const url = `https://${subdomain}.basemaps.cartocdn.com/rastertiles/voyager/${zoom}/${wtx}/${ty}.png`;
+                        // Same tiles as the in-app map
+                        const url = OSM_TILE_URL.replace('{z}', zoom).replace('{x}', wtx).replace('{y}', ty);
                         // Pixel offset of this tile on canvas
                         const px = Math.round((tx - cX) * TILE_SIZE + canvasCX);
                         const py = Math.round((ty - cY) * TILE_SIZE + canvasCY);
                         tilePromises.push(
                             // Timeout: one hung tile on a weak connection used to stall the whole PDF export
                             fetch(url, typeof AbortSignal.timeout === 'function' ? { signal: AbortSignal.timeout(8000) } : {})
-                                .then(r => r.blob())
+                                .then(r => { if (!r.ok) throw new Error('tile ' + r.status); return r.blob(); })
                                 .then(blob => new Promise(resolve => {
                                     const img = new Image();
                                     const tileUrl = URL.createObjectURL(blob);
@@ -7499,7 +7506,7 @@
                 ctx.fillStyle = 'rgba(0,0,0,0.6)';
                 ctx.textAlign = 'right';
                 ctx.textBaseline = 'bottom';
-                ctx.fillText('© OpenStreetMap contributors  © CARTO', CANVAS_W - 6, CANVAS_H - 4);
+                ctx.fillText('© OpenStreetMap contributors', CANVAS_W - 6, CANVAS_H - 4);
 
                 return canvas;
             }
