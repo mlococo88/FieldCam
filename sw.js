@@ -6,9 +6,10 @@
 // - Firebase / weather / map-tile traffic is never touched: data goes through
 //   the in-app offline outbox and Firestore's own cache.
 //
-// Bump CACHE when changing this file's caching behaviour.
+// Bump CACHE when this file's caching changes or the page's library/font URLs change,
+// so installed copies re-cache them.
 
-const CACHE = 'fieldcam-v1';
+const CACHE = 'fieldcam-v2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const CDN_HOSTS = [
     'cdn.tailwindcss.com', 'unpkg.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net',

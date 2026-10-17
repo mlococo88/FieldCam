@@ -69,7 +69,7 @@ await page.addInitScript(() => {
 await page.goto(`${base}/index.html`, { waitUntil: 'load' });
 await page.waitForFunction(() => window.app, null, { timeout: 30000 });
 await page.waitForTimeout(1000);
-check(await page.evaluate(() => document.querySelectorAll('#feed h4, h4').length >= 3), 'log shows entries');
+check(await page.evaluate(() => document.querySelectorAll('#report-feed .feed-card').length >= 3), 'log shows entries');
 stepErrors('app loads');
 
 // Sketch: draw a stroke and confirm pixels were painted
