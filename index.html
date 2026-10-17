@@ -1606,6 +1606,38 @@
         };
         const formatDate = (ts) => new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
+        // Escape text for HTML text or a quoted attribute. Entries live in a shared
+        // collection, so every user-supplied value that goes through innerHTML must pass here.
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c =>
+            ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        // A value as a JS string literal inside a double-quoted inline handler attribute
+        const jsArg = (v) => esc(JSON.stringify(String(v ?? '')));
+
+        // Note bodies are rich text from the note editor: keep only its formatting
+        // tags, drop every attribute (onerror=, style=, href=…) and anything else
+        const NOTE_TAGS = new Set(['B','STRONG','I','EM','U','UL','OL','LI','H1','H2','H3','H4','P','DIV','BR','SPAN']);
+        const sanitizeNoteHtml = (html) => {
+            const tpl = document.createElement('template');
+            tpl.innerHTML = String(html ?? '');
+            const clean = (node) => {
+                [...node.childNodes].forEach(child => {
+                    if (child.nodeType === Node.TEXT_NODE) return;
+                    if (child.nodeType !== Node.ELEMENT_NODE || !NOTE_TAGS.has(child.tagName)) {
+                        // Unknown element: keep its text (scripts/styles go entirely)
+                        if (child.nodeType === Node.ELEMENT_NODE && !['SCRIPT','STYLE','TEMPLATE','IFRAME','OBJECT'].includes(child.tagName)) {
+                            clean(child);
+                            child.replaceWith(...child.childNodes);
+                        } else child.remove();
+                        return;
+                    }
+                    [...child.attributes].forEach(a => child.removeAttribute(a.name));
+                    clean(child);
+                });
+            };
+            clean(tpl.content);
+            return tpl.innerHTML;
+        };
+
         // Short stable hash (cyrb53) of a whole string — for deterministic doc IDs
         // where truncating the source string would make different inputs collide
         const hashKey = (str) => {
@@ -2205,7 +2237,7 @@
 
                     const title = item.meta?.title || item.meta?.caption || 'Untitled';
                     const errorNote = (isFailed && item.lastError)
-                        ? `<p class="text-[10px] text-red-500 mt-0.5 truncate">${item.lastError}</p>` : '';
+                        ? `<p class="text-[10px] text-red-500 mt-0.5 truncate">${esc(item.lastError)}</p>` : '';
 
                     const div = document.createElement('div');
                     div.className = `flex items-center gap-3 p-3 ${isFailed ? 'bg-red-50' : 'bg-white'} hover:bg-slate-50 transition`;
@@ -2216,10 +2248,10 @@
                                 ${statusBadge}
                                 <span class="text-[10px] text-slate-400">${ageStr}</span>
                             </div>
-                            <p class="text-sm font-bold text-slate-700 truncate">${title}</p>
+                            <p class="text-sm font-bold text-slate-700 truncate">${esc(title)}</p>
                             ${errorNote}
                         </div>
-                        <button onclick="window.app.removeOutboxItem('${item.id}')"
+                        <button onclick="window.app.removeOutboxItem(${esc(JSON.stringify(String(item.id)))})"
                             class="flex-none p-1.5 text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50 transition"
                             title="Remove from outbox">
                             <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
@@ -4473,7 +4505,7 @@
                     // Populate editor: prefer saved HTML, fall back to plain text
                     const editor = $('note-editor');
                     if (item.html) {
-                        editor.innerHTML = item.html;
+                        editor.innerHTML = sanitizeNoteHtml(item.html);
                     } else {
                         editor.innerText = item.text || item.detailedDesc || '';
                     }
@@ -4519,7 +4551,8 @@
                             const ageMin = (Date.now() - draft.ts) / 60000;
                             if (ageMin < 1440) { // only restore drafts under 24h old
                                 $('note-title').value = draft.title || '';
-                                $('note-editor').innerHTML = draft.html || draft.text || '';
+                                if (draft.html) $('note-editor').innerHTML = sanitizeNoteHtml(draft.html);
+                                else $('note-editor').innerText = draft.text || '';
                                 if (draft.linkedPhotoId) {
                                     this._noteLinkedPhotoId = draft.linkedPhotoId;
                                     this._renderLinkedPhoto(draft.linkedPhotoId);
@@ -4695,9 +4728,9 @@
                     btn.onclick = () => { this._noteLinkedPhotoId = p.id; this._renderLinkedPhoto(p.id); this.closeNotePhotoLink(); };
                     btn.innerHTML = `
                         <div class="w-14 h-14 rounded-lg overflow-hidden border-2 border-transparent group-hover:border-emerald-400 transition">
-                            <img src="${p.url}" class="w-full h-full object-cover" onerror="this.parentElement.parentElement.style.display='none'">
+                            <img src="${esc(p.url)}" class="w-full h-full object-cover" onerror="this.parentElement.parentElement.style.display='none'">
                         </div>
-                        <span class="text-[9px] text-slate-500 font-bold">#${p.photoNumber || '?'}</span>`;
+                        <span class="text-[9px] text-slate-500 font-bold">#${esc(p.photoNumber || '?')}</span>`;
                     list.appendChild(btn);
                 });
             }
@@ -4773,18 +4806,18 @@
                     const typeLabel = isNote    ? 'Note'
                                     : isNotepad ? 'Note Pad'
                                     : item.type === 'sketch' ? 'Sketch'
-                                    : `Photo #${item.photoNumber || '?'}`;
+                                    : `Photo #${esc(item.photoNumber || '?')}`;
                     const thumb = (!isNote && item.url)
-                        ? `<div class="w-16 h-16 flex-none bg-slate-200 overflow-hidden"><img src="${item.url}" class="w-full h-full object-cover" onerror="this.style.display='none'"></div>`
+                        ? `<div class="w-16 h-16 flex-none bg-slate-200 overflow-hidden"><img src="${esc(item.url)}" class="w-full h-full object-cover" onerror="this.style.display='none'"></div>`
                         : `<div class="w-16 h-16 flex-none ${isNote ? 'bg-yellow-50' : 'bg-purple-50'} flex items-center justify-center text-2xl">${isNote ? '📝' : '✏️'}</div>`;
                     div.innerHTML = `${thumb}
                         <div class="p-2.5 flex-1 min-w-0">
                             <div class="flex items-center gap-1.5 mb-0.5">
                                 <span class="text-[9px] font-bold px-1.5 py-0.5 rounded ${typeColor}">${typeLabel}</span>
-                                <span class="text-[9px] text-slate-400 font-mono">${item.dateString ? item.dateString.split(' ')[0] : ''}</span>
+                                <span class="text-[9px] text-slate-400 font-mono">${esc(item.dateString ? item.dateString.split(' ')[0] : '')}</span>
                             </div>
-                            <p class="text-xs font-bold text-slate-700 truncate">${item.title || 'Untitled'}</p>
-                            <p class="text-[10px] text-slate-400 truncate">${item.detailedDesc || item.text || item.caption || ''}</p>
+                            <p class="text-xs font-bold text-slate-700 truncate">${esc(item.title || 'Untitled')}</p>
+                            <p class="text-[10px] text-slate-400 truncate">${esc(item.detailedDesc || item.text || item.caption || '')}</p>
                         </div>`;
                     panel.appendChild(div);
                 });
@@ -4821,7 +4854,7 @@
                 } else if (item.type === 'note') {
                     $('report-preview-note-title').innerText = item.title || 'Note';
                     const bodyEl = $('report-preview-note-body');
-                    if (item.html) { bodyEl.innerHTML = item.html; }
+                    if (item.html) { bodyEl.innerHTML = sanitizeNoteHtml(item.html); }
                     else { bodyEl.innerText = item.text || item.detailedDesc || ''; }
                     $('report-preview-note-date').innerText = item.dateString || '';
                     $('report-preview-note').classList.remove('hidden');
@@ -4901,36 +4934,36 @@
                         window.app.showDesktopPreview(item.id);
                     };
                     const isChecked = !state.excludedReportItems.has(item.id);
-                    const checkboxHtml = `<div class="absolute top-2 left-2 z-20" onclick="event.stopPropagation()"><input type="checkbox" class="w-5 h-5 accent-blue-600 rounded cursor-pointer shadow-sm" ${isChecked ? 'checked' : ''} onchange="window.app.toggleReportSelection('${item.id}')"></div>`;
+                    const checkboxHtml = `<div class="absolute top-2 left-2 z-20" onclick="event.stopPropagation()"><input type="checkbox" class="w-5 h-5 accent-blue-600 rounded cursor-pointer shadow-sm" ${isChecked ? 'checked' : ''} onchange="window.app.toggleReportSelection(${jsArg(item.id)})"></div>`;
                     if(item.type === 'photo' || item.type === 'sketch') {
-                        div.innerHTML = `${checkboxHtml}<div class="w-24 h-24 bg-slate-200 relative flex-none flex items-center justify-center text-slate-400"><i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i><img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'"></div><div class="p-3 flex-1 flex flex-col justify-between overflow-hidden"><div><div class="flex justify-between items-start"><div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div><div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + (item.photoNumber||'?')}</div></div><h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Untitled'}</h4><p class="text-xs text-slate-500 truncate">${item.detailedDesc || item.caption}</p></div><div class="flex justify-end gap-3 mt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
+                        div.innerHTML = `${checkboxHtml}<div class="w-24 h-24 bg-slate-200 relative flex-none flex items-center justify-center text-slate-400"><i data-lucide="${item.type === 'sketch' ? 'pen-tool' : 'image'}" class="w-8 h-8 absolute"></i><img src="${esc(item.url)}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'"></div><div class="p-3 flex-1 flex flex-col justify-between overflow-hidden"><div><div class="flex justify-between items-start"><div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${esc(item.dateString)}</div><div class="text-[10px] font-bold ${item.type === 'sketch' ? 'text-purple-600 bg-purple-50' : 'text-blue-600 bg-blue-50'} px-1.5 py-0.5 rounded">${item.type === 'sketch' ? 'Sketch' : 'Photo #' + esc(item.photoNumber||'?')}</div></div><h4 class="text-sm font-bold text-slate-800 truncate">${esc(item.title || 'Untitled')}</h4><p class="text-xs text-slate-500 truncate">${esc(item.detailedDesc || item.caption || '')}</p></div><div class="flex justify-end gap-3 mt-2"><button onclick="window.app.editEntry(${jsArg(item.id)})" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry(${jsArg(item.id)})" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     } else if(item.type === 'notepad') {
                         // Quick Notes card — shows saved page image + page info
                         const pageNum = item.title?.match(/Page (\d+)/)?.[1] || '1';
                         div.innerHTML = `${checkboxHtml}
                             <div class="w-24 h-24 bg-sky-50 relative flex-none flex items-center justify-center text-sky-300 overflow-hidden">
-                                ${item.url ? `<img src="${item.url}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'">` : ''}
+                                ${item.url ? `<img src="${esc(item.url)}" class="w-full h-full object-cover relative z-10" onerror="this.style.display='none'">` : ''}
                                 <svg class="w-8 h-8 absolute" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                             </div>
                             <div class="p-3 flex-1 flex flex-col justify-between overflow-hidden">
                                 <div>
                                     <div class="flex justify-between items-start">
-                                        <div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${item.dateString}</div>
+                                        <div class="text-[10px] text-slate-400 font-mono mb-1 ml-6">${esc(item.dateString)}</div>
                                         <div class="text-[10px] font-bold text-sky-600 bg-sky-50 px-1.5 py-0.5 rounded">Quick Notes</div>
                                     </div>
-                                    <h4 class="text-sm font-bold text-slate-800 truncate">${item.title || 'Quick Notes'}</h4>
-                                    <p class="text-xs text-slate-500 truncate">${item.detailedDesc || ''}</p>
+                                    <h4 class="text-sm font-bold text-slate-800 truncate">${esc(item.title || 'Quick Notes')}</h4>
+                                    <p class="text-xs text-slate-500 truncate">${esc(item.detailedDesc || '')}</p>
                                 </div>
                                 <div class="flex justify-end gap-3 mt-2">
-                                    <button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Open</button>
-                                    <button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
+                                    <button onclick="window.app.editEntry(${jsArg(item.id)})" class="text-xs font-bold text-slate-400 hover:text-blue-600">Open</button>
+                                    <button onclick="window.app.deleteEntry(${jsArg(item.id)})" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button>
                                 </div>
                             </div>`;
                     } else {
                         const linkedPhoto = item.linkedPhotoId ? state.items.find(i => i.id === item.linkedPhotoId) : null;
-                        const linkedThumb = linkedPhoto ? `<img src="${linkedPhoto.url}" class="w-10 h-10 rounded border border-slate-200 object-cover flex-none ml-2" title="Linked: Photo #${linkedPhoto.photoNumber||'?'}">` : '';
+                        const linkedThumb = linkedPhoto ? `<img src="${esc(linkedPhoto.url)}" class="w-10 h-10 rounded border border-slate-200 object-cover flex-none ml-2" title="Linked: Photo #${esc(linkedPhoto.photoNumber||'?')}">` : '';
                         const modBadge = item.modifiedAt ? `<span class="text-[9px] text-slate-400 ml-1">· edited</span>` : '';
-                        div.innerHTML = `${checkboxHtml}<div class="w-2 bg-yellow-400 flex-none"></div><div class="p-3 flex-1 min-w-0"><div class="flex justify-between items-start mb-1"><span class="text-[10px] text-slate-400 font-mono ml-6">${item.dateString}${modBadge}</span><div class="flex items-center gap-1">${linkedThumb}<i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i></div></div><h4 class="text-sm font-bold text-slate-800">${item.title || 'Note'}</h4><p class="text-xs text-slate-600 mt-1 line-clamp-2">${item.text}</p><div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2"><button onclick="window.app.editEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry('${item.id}')" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
+                        div.innerHTML = `${checkboxHtml}<div class="w-2 bg-yellow-400 flex-none"></div><div class="p-3 flex-1 min-w-0"><div class="flex justify-between items-start mb-1"><span class="text-[10px] text-slate-400 font-mono ml-6">${esc(item.dateString)}${modBadge}</span><div class="flex items-center gap-1">${linkedThumb}<i data-lucide="file-text" class="w-3 h-3 text-slate-300"></i></div></div><h4 class="text-sm font-bold text-slate-800">${esc(item.title || 'Note')}</h4><p class="text-xs text-slate-600 mt-1 line-clamp-2">${esc(item.text || item.detailedDesc || '')}</p><div class="flex justify-end gap-3 mt-2 border-t border-slate-100 pt-2"><button onclick="window.app.editEntry(${jsArg(item.id)})" class="text-xs font-bold text-slate-400 hover:text-blue-600">Edit</button><button onclick="window.app.deleteEntry(${jsArg(item.id)})" class="text-xs font-bold text-slate-400 hover:text-red-500">Delete</button></div></div>`;
                     }
                     feed.appendChild(div);
                 });
@@ -5068,23 +5101,23 @@
                             box-shadow:0 2px 6px rgba(0,0,0,0.35);
                             display:flex;align-items:center;justify-content:center;
                             cursor:pointer;
-                        ">${label}</div>`,
+                        ">${esc(label)}</div>`,
                         iconSize: [28, 28],
                         iconAnchor: [14, 14]
                     });
 
                     // Build rich popup HTML
                     const thumbHtml = (i.type === 'photo' || i.type === 'sketch') && i.url
-                        ? `<img src="${i.url}" style="width:100%;height:100px;object-fit:cover;display:block;border-radius:6px 6px 0 0;"
+                        ? `<img src="${esc(i.url)}" style="width:100%;height:100px;object-fit:cover;display:block;border-radius:6px 6px 0 0;"
                                onerror="this.style.display='none'">`
                         : `<div style="width:100%;height:60px;background:${color}20;border-radius:6px 6px 0 0;display:flex;align-items:center;justify-content:center;font-size:24px;">${isNote ? '📝' : '✏️'}</div>`;
 
-                    const typeLabel = isNote ? 'Note' : (isSketch ? 'Sketch' : `Photo #${i.photoNumber || '?'}`);
+                    const typeLabel = isNote ? 'Note' : (isSketch ? 'Sketch' : `Photo #${esc(i.photoNumber || '?')}`);
                     const typeBadgeColor = isNote ? '#eab308' : (isSketch ? '#9333ea' : '#2563eb');
 
                     const openAction = isNote
-                        ? `window.app.openMapNote('${i.id}')`
-                        : `window.app.openMapPhoto('${i.id}')`;
+                        ? `window.app.openMapNote(${jsArg(i.id)})`
+                        : `window.app.openMapPhoto(${jsArg(i.id)})`;
 
                     const popupHtml = `
                         <div style="width:200px;font-family:Inter,sans-serif;margin:-13px -20px -13px;border-radius:8px;overflow:hidden;">
@@ -5092,13 +5125,13 @@
                             <div style="padding:10px;">
                                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
                                     <span style="font-size:9px;font-weight:700;color:${typeBadgeColor};text-transform:uppercase;letter-spacing:0.05em;">${typeLabel}</span>
-                                    <span style="font-size:9px;color:#94a3b8;">${i.dateString ? i.dateString.split(' ')[0] : ''}</span>
+                                    <span style="font-size:9px;color:#94a3b8;">${esc(i.dateString ? i.dateString.split(' ')[0] : '')}</span>
                                 </div>
                                 <div style="font-size:13px;font-weight:700;color:#1e293b;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                                    ${i.title || 'Untitled'}
+                                    ${esc(i.title || 'Untitled')}
                                 </div>
                                 <div style="font-size:11px;color:#64748b;margin-bottom:8px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;">
-                                    ${i.detailedDesc || i.text || i.caption || ''}
+                                    ${esc(i.detailedDesc || i.text || i.caption || '')}
                                 </div>
                                 <button onclick="${openAction}"
                                     style="width:100%;padding:7px;background:${typeBadgeColor};color:white;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;font-family:Inter,sans-serif;">
@@ -5279,7 +5312,7 @@
                         const el = document.createElement('div');
                         el.className = "bg-yellow-50 border border-yellow-200 rounded-lg p-3 flex flex-col items-center justify-center cursor-pointer hover:bg-yellow-100 aspect-square";
                         el.onclick = () => this.loadFiles(p.fullPath);
-                        el.innerHTML = `<i data-lucide="folder" class="w-8 h-8 text-yellow-500 mb-2"></i><span class="text-[10px] font-bold text-yellow-800 truncate w-full text-center">${p.name}</span>`;
+                        el.innerHTML = `<i data-lucide="folder" class="w-8 h-8 text-yellow-500 mb-2"></i><span class="text-[10px] font-bold text-yellow-800 truncate w-full text-center">${esc(p.name)}</span>`;
                         grid.appendChild(el);
                     });
                     // Fetch all download URLs in parallel instead of sequentially
@@ -5288,7 +5321,7 @@
                             const url = await getDownloadURL(item);
                             const el = document.createElement('div');
                             el.className = "bg-white border border-slate-200 rounded-lg overflow-hidden relative group aspect-square";
-                            el.innerHTML = `<img src="${url}" class="w-full h-full object-cover"><a href="${url}" target="_blank" rel="noopener noreferrer" class="absolute inset-0"></a><div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] p-1 truncate">${item.name}</div>`;
+                            el.innerHTML = `<img src="${esc(url)}" class="w-full h-full object-cover"><a href="${esc(url)}" target="_blank" rel="noopener noreferrer" class="absolute inset-0"></a><div class="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[9px] p-1 truncate">${esc(item.name)}</div>`;
                             grid.appendChild(el);
                         } catch(e) { console.warn('Could not load file', item.name, e); }
                     }));
@@ -5568,6 +5601,7 @@
                             const bmQuickNotes = { title: 'Quick Notes', page: pageNum, children: [] };
                             bmTree.push(bmQuickNotes);
                             let y = sectionHeader('Quick Notes');
+                            let onPage = 0;   // images already placed on the current page
 
                             for (let ni = 0; ni < npItems.length; ni++) {
                                 const np = npItems[ni];
@@ -5576,10 +5610,17 @@
                                     const imgData = await this.urlToBase64(np.url);
                                     const imgProps = doc.getImageProperties(imgData);
                                     const ratio = imgProps.height / imgProps.width;
-                                    const dW = contentW;
-                                    const dH = Math.min(dW * ratio, pageHeight - y - 20);
-                                    if (y + dH > pageHeight - 15) { newPage(); y = 22; }
-                                    doc.addImage(imgData, 'JPEG', margin, y, dW, dH);
+                                    // Keep the page's aspect ratio: fit within a full page (below the
+                                    // running header, leaving room for the caption), then break if
+                                    // it doesn't fit in what's left of this one
+                                    const captionH = 11;
+                                    const bottom = (pageHeight - 15) - captionH;
+                                    const fit = (room) => { let w = contentW, h = w * ratio; if (h > room) { h = room; w = h / ratio; } return [w, h]; };
+                                    let [dW, dH] = fit(bottom - y);
+                                    // Would it be bigger on a fresh page? Then break — unless this page is still empty
+                                    if (onPage > 0 && dH < fit(bottom - 22)[1] - 0.5) { newPage(); y = 22; onPage = 0; [dW, dH] = fit(bottom - y); }
+                                    doc.addImage(imgData, 'JPEG', margin + (contentW - dW) / 2, y, dW, dH);
+                                    onPage++;
                                     y += dH + 3;
                                     doc.setFontSize(7.5); doc.setFont('helvetica','italic'); doc.setTextColor(120,120,120);
                                     doc.text(np.title || 'Quick Notes', margin, y);
@@ -5600,12 +5641,18 @@
                         const bmSection = { title: secTitle, page: pageNum, children: [] };
                         bmTree.push(bmSection);
                         let y = sectionHeader(secTitle);
-                        const cols = ppp === 4 ? 2 : 1;
-                        const imgMaxH = ppp === 1 ? (isLandscape ? 135 : 110) : ppp === 2 ? 85 : 60;
+                        // Grid per page: 2-up stacks in portrait, sits side by side in landscape
+                        const cols = (ppp === 4 || (ppp === 2 && isLandscape)) ? 2 : 1;
+                        const rows = Math.max(1, Math.round(ppp / cols));
+                        const rowGap = 8;
                         // capH must fit: photo# line + title + description (up to 2 lines) + GPS/Wx/Heading
                         const capH = ppp === 4 ? 30 : 44;
                         const cellW = cols === 2 ? (contentW - 5) / 2 : contentW;
-                        const cellH = imgMaxH + capH;
+                        // Size cells from the space actually below the section header so
+                        // `rows` cells fit (the old fixed heights pushed 2-up onto 1 per page)
+                        const availH = (pageHeight - 15) - y;
+                        const cellH = Math.floor((availH - (rows - 1) * rowGap) / rows);
+                        const imgMaxH = cellH - capH;
                         let col = 0;
 
                         for (let i = 0; i < items.length; i++) {
@@ -5622,11 +5669,9 @@
                             const drawY = y;
 
                             try {
-                                // Child bookmark for this photo/sketch (first column = new item on this page)
-                                if (col === 0) {
-                                    const itemLabel = p.type === 'sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber || i+1);
-                                    bmSection.children.push({ title: itemLabel + ' — ' + (p.title || 'Untitled'), page: pageNum });
-                                }
+                                // Child bookmark for every photo/sketch
+                                const itemLabel = p.type === 'sketch' ? 'Sketch' : 'Photo #' + (p.photoNumber || i+1);
+                                bmSection.children.push({ title: itemLabel + ' — ' + (p.title || 'Untitled'), page: pageNum });
 
                                 let imgUrl = p.url;
                                 if (o.rawPhotos && p.rawStoragePath) {
@@ -5691,7 +5736,7 @@
                             col++;
                             if (col >= cols) {
                                 col = 0;
-                                y += cellH + 8;
+                                y += cellH + rowGap;
                                 if (y > pageHeight - 15 && i < items.length - 1) {
                                     newPage(); y = sectionHeader(secTitle);
                                 }
@@ -5809,6 +5854,14 @@
                         }
                     }
 
+                    // Without a cover, page 1 (created by new jsPDF) is never drawn on —
+                    // every section starts with addPage() — so drop it and shift bookmarks
+                    if (!o.cover && doc.getNumberOfPages() > 1) {
+                        doc.deletePage(1);
+                        const shift = (list) => list.forEach(bm => { bm.page = Math.max(1, bm.page - 1); if (bm.children) shift(bm.children); });
+                        shift(bmTree);
+                    }
+
                     // Stamp correct footers now that we know total pages
                     const totalPgs = doc.getNumberOfPages();
                     const coverOffset = o.cover ? 1 : 0;
@@ -5819,12 +5872,11 @@
                     }
 
                     // ── Build PDF outline / bookmarks ──────────────────
-                    // Navigate to each tracked page and add the outline item so
-                    // jsPDF links it to the correct page in the document.
+                    // jsPDF only writes a destination when pageNumber is passed —
+                    // setPage() alone leaves the bookmark pointing nowhere.
                     const buildOutline = (parent, items) => {
                         items.forEach(bm => {
-                            doc.setPage(Math.min(bm.page, totalPgs));
-                            const node = doc.outline.add(parent, bm.title);
+                            const node = doc.outline.add(parent, bm.title, { pageNumber: Math.min(bm.page, totalPgs) });
                             if (bm.children && bm.children.length > 0) {
                                 buildOutline(node, bm.children);
                             }
@@ -5965,8 +6017,8 @@
                         const sizeStr  = sizeKB > 1024 ? (sizeKB/1024).toFixed(1) + ' MB' : sizeKB + ' KB';
                         const uploaded = meta.timeCreated ? new Date(meta.timeCreated).toLocaleDateString() : '';
                         const catColors= { Structural:'bg-blue-100 text-blue-700', Mechanical:'bg-orange-100 text-orange-700', Electrical:'bg-yellow-100 text-yellow-700', Civil:'bg-green-100 text-green-700', Other:'bg-slate-100 text-slate-600' };
-                        const catBadge = category ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${catColors[category]||catColors.Other}">${category}</span>` : '';
-                        const pageBadge= pageCount ? `<span class="text-[9px] text-slate-400">${pageCount} page${pageCount!=1?'s':''}</span>` : '';
+                        const catBadge = category ? `<span class="text-[9px] font-bold px-1.5 py-0.5 rounded-full ${catColors[category]||catColors.Other}">${esc(category)}</span>` : '';
+                        const pageBadge= pageCount ? `<span class="text-[9px] text-slate-400">${esc(pageCount)} page${pageCount!=1?'s':''}</span>` : '';
 
                         const card = document.createElement('div');
                         card.className = 'plan-card bg-white rounded-2xl shadow-sm border border-slate-200 p-4 flex items-center gap-4 hover:shadow-md hover:border-blue-200 transition';
@@ -5976,19 +6028,19 @@
                             </div>
                             <div class="flex-1 min-w-0">
                                 <div class="flex items-center gap-1.5 flex-wrap mb-0.5">${catBadge}${pageBadge}</div>
-                                <p class="font-bold text-slate-800 text-sm truncate">${name}</p>
+                                <p class="font-bold text-slate-800 text-sm truncate">${esc(name)}</p>
                                 <p class="text-[10px] text-slate-400">${sizeStr} · ${uploaded}</p>
                             </div>
                             <div class="flex items-center gap-1.5 flex-none">
-                                <button onclick="event.stopPropagation(); window.app.renamePlan('${item.fullPath}', '${name.replace(/'/g,"\\'")}', '${category}')"
+                                <button onclick="event.stopPropagation(); window.app.renamePlan(${jsArg(item.fullPath)}, ${jsArg(name)}, ${jsArg(category)})"
                                     class="p-2 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-blue-500 transition" title="Rename / Edit">
                                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
                                 </button>
-                                <button onclick="event.stopPropagation(); window.app.deletePlan('${item.fullPath}', '${name.replace(/'/g,"\\'")}');"
+                                <button onclick="event.stopPropagation(); window.app.deletePlan(${jsArg(item.fullPath)}, ${jsArg(name)});"
                                     class="p-2 rounded-lg hover:bg-red-50 text-slate-400 hover:text-red-500 transition" title="Delete">
                                     <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>
                                 </button>
-                                <button onclick="window.app.openPDFMarkup('${item.fullPath}', '${name.replace(/'/g,"\\'")}');"
+                                <button onclick="window.app.openPDFMarkup(${jsArg(item.fullPath)}, ${jsArg(name)});"
                                     class="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition">
                                     <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                                     Markup
@@ -6031,7 +6083,7 @@
                         <div class="w-12 h-14 bg-red-50 border-2 border-red-100 rounded-lg flex items-center justify-center group-hover:border-blue-300 transition">
                             <svg class="w-5 h-5 text-red-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
                         </div>
-                        <span class="text-[9px] text-slate-500 text-center truncate w-full">${r.displayName}</span>`;
+                        <span class="text-[9px] text-slate-500 text-center truncate w-full">${esc(r.displayName)}</span>`;
                     list.appendChild(btn);
                 });
             }
@@ -6062,6 +6114,7 @@
                         const storePath = `artifacts/${appId}/public/plans/${state.project}/${Date.now()}_${file.name}`;
                         const fileRef   = ref(state.storage, storePath);
                         await uploadBytes(fileRef, file, {
+                            contentType: 'application/pdf',
                             customMetadata: {
                                 displayName: file.name.replace(/\.pdf$/i, ''),
                                 category,

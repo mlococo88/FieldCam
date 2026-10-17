@@ -1,0 +1,40 @@
+rules_version = '2';
+
+// DRAFT — not deployed. Review before publishing in the Firebase console
+// (Storage → Rules) or with `firebase deploy --only storage`.
+// Same caveat as firestore.rules: with anonymous sign-in, member() is anyone
+// using the app. These rules limit file types and sizes; real access control
+// needs real sign-in (see TODO).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // TODO(real sign-in): replace with e.g. request.auth.token.email in team list
+    function member() { return request.auth != null; }
+
+    // Photos, sketches and pages: raw_<id>.<ext> and <id>.jpg per project
+    match /artifacts/{appId}/public/data/files/{project}/{file} {
+      allow read, delete: if member();
+      allow create, update: if member()
+        && request.resource.size < 50 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Plan PDFs
+    match /artifacts/{appId}/public/plans/{project}/{file} {
+      allow read, delete: if member();
+      allow create, update: if member()
+        && request.resource.size < 150 * 1024 * 1024
+        && request.resource.contentType == 'application/pdf';
+    }
+
+    // Folder listing for the Files tab
+    match /artifacts/{appId}/public/data/files/{path=**} {
+      allow read: if member();
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
