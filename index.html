@@ -1478,7 +1478,7 @@
             <div id="camera-zoom-label" class="hidden absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 text-white text-xs font-bold px-3 py-1 rounded-full backdrop-blur-sm">1.0×</div>
 
             <!-- Top controls — always above the video, pointer-events isolated -->
-            <button onclick="window.app.closeCamera()"
+            <button onclick="window.app.cancelCamera()"
                 class="absolute top-4 left-4 bg-black/50 text-white p-2.5 rounded-full backdrop-blur-sm z-10">
                 <svg class="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
             </button>
@@ -1606,6 +1606,20 @@
         };
         const formatDate = (ts) => new Date(ts).toLocaleDateString() + ' ' + new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
 
+        // Short stable hash (cyrb53) of a whole string — for deterministic doc IDs
+        // where truncating the source string would make different inputs collide
+        const hashKey = (str) => {
+            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+            for (let i = 0; i < str.length; i++) {
+                const ch = str.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36);
+        };
+
         // ── TIMEOUT COUNTDOWN UI ────────────────────────────────────────────
         let countdownInterval = null;
 
@@ -1714,10 +1728,10 @@
             }
 
             // ── Add with full metadata ──────────────────────────────────────
+            // Throws if the item could not be stored — callers must not report success
             async addToOutbox(item) {
                 if (!await this._ready()) {
-                    console.error("IndexedDB unavailable — item lost", item.id);
-                    return;
+                    throw new Error('Offline storage is unavailable');
                 }
 
                 // Storage quota warning
@@ -1734,18 +1748,18 @@
                 item.lastAttempt = null;
                 item.lastError = null;
 
-                // Duplicate guard — don't queue same ID twice
+                // Same ID already queued (e.g. a note edited again while offline):
+                // replace it so the newest version is what syncs
                 const existing = await this._get(item.id);
-                if (existing) {
-                    console.warn("Outbox: item already queued", item.id);
-                    return;
-                }
+                if (existing) item.savedAt = existing.savedAt;
 
                 return new Promise((resolve, reject) => {
                     const tx = this.db.transaction([this.storeName], 'readwrite');
                     tx.objectStore(this.storeName).put(item);
                     tx.oncomplete = () => { this.updateOutboxBadge(); resolve(); };
-                    tx.onerror = e => reject(e);
+                    // Quota errors surface at commit as an abort, not an error
+                    tx.onerror = () => reject(tx.error || new Error('Could not save offline'));
+                    tx.onabort = () => reject(tx.error || new Error('Could not save offline'));
                 });
             }
 
@@ -2673,6 +2687,12 @@
 
                 } catch(e) {
                     console.warn("getUserMedia failed:", e.name, e.message);
+                    if (this._cameraCaptured?.length) {
+                        // e.g. switching cameras failed mid-session — keep what was already shot
+                        this.closeCameraAndReview();
+                        showToast("Camera unavailable — saving the photos you took", 4000);
+                        return;
+                    }
                     this.closeCamera();
                     if (e.name === 'NotAllowedError') {
                         showToast("Camera permission denied — check browser settings", 4000);
@@ -2811,6 +2831,13 @@
                     // closeCameraAndReview builds the queue from _cameraCaptured
                     showToast(`Photo ${this._cameraCaptured.length} captured`);
                 }, 'image/jpeg', 0.92);
+            }
+
+            // ✕ button — never silently drop photos taken in this session
+            cancelCamera() {
+                const n = this._cameraCaptured?.length || 0;
+                if (n > 0 && !confirm(`Discard the ${n} photo${n !== 1 ? 's' : ''} you just took?\n\nTap Cancel to keep shooting, then Done to save them.`)) return;
+                this.closeCamera();
             }
 
             closeCamera() {
@@ -3220,6 +3247,7 @@
 
                 let completed = 0;
                 let savedOffline = 0;
+                const lost = [];
 
                 const updateProgress = () => {
                     const pct = Math.round((completed / count) * 100);
@@ -3267,32 +3295,29 @@
 
                     const chunk = items.slice(i, i + CONCURRENCY);
                     await Promise.all(chunk.map(async ({ item, meta }) => {
-                        try {
-                            if (!state.online) {
-                                await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
-                                savedOffline++;
-                            } else {
-                                try {
-                                    await withUploadTimeout(this.uploadWorkflow(item.blob, meta, doOverlay), getTimeoutMs());
-                                } catch(e) {
-                                    await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
-                                    savedOffline++;
-                                }
-                            }
-                        } catch(e) {
-                            console.error('Queue upload error for', item.id, e);
-                        }
+                        const res = await this._uploadOrQueue(item.blob, meta, doOverlay);
+                        if (res === 'offline') savedOffline++;
+                        else if (res === 'lost') lost.push(item);
                         completed++;
                         updateProgress();
                     }));
                 }
 
                 // Done
+                $('queue-progress-wrap').classList.add('hidden');
+                $('queue-action-btns').classList.remove('hidden');
+                if (lost.length > 0) {
+                    // Keep anything that was neither uploaded nor stored offline so it can be retried
+                    state.queue = lost;
+                    this._renderQueueGrid();
+                    this._updateQueueSubtitle();
+                    $('queue-upload-btn').innerText = `Upload ${lost.length} Photo${lost.length !== 1 ? 's' : ''}`;
+                    alert(`${lost.length} of ${count} photo${lost.length !== 1 ? 's' : ''} could not be uploaded or saved offline (device storage may be full).\n\nThey are still in the queue — try again.`);
+                    return;
+                }
                 state.queue = [];
                 state.batchMode = false;
                 $('modal-queue').classList.add('hidden');
-                $('queue-progress-wrap').classList.add('hidden');
-                $('queue-action-btns').classList.remove('hidden');
 
                 const uploaded = completed - savedOffline;
                 if (savedOffline > 0 && uploaded > 0) showToast(`${uploaded} uploaded, ${savedOffline} saved offline`);
@@ -3321,8 +3346,17 @@
                 $('modal-img-preview').src = url;
                 $('cap-title').value = '';
                 $('cap-desc').value = '';
-                $('modal-title-text').innerText = `Batch Upload (${count} Photos)`;
-                $('btn-save-upload').innerText = `Upload ${count} Photos`;
+                const noun = state.queue.every(i => i.type === 'sketch') ? 'Sketch Pages' : 'Photos';
+                $('modal-title-text').innerText = `Batch Upload (${count} ${noun})`;
+                $('btn-save-upload').innerText = `Upload ${count} ${noun}`;
+                // Reset anything a previous caption edit left behind — otherwise the
+                // button still calls updateEntry() and overwrites that earlier entry
+                $('btn-save-upload').onclick = () => window.app.confirmUpload();
+                $('exif-badge').classList.add('hidden');
+                const reburnRow = $('reburn-row');
+                if (reburnRow) reburnRow.style.display = 'none';
+                const burnLabel = $('burn-toggle')?.closest('label');
+                if (burnLabel) burnLabel.style.display = '';
                 state.editMode = false;
                 state.batchMode = true;
                 // Show per-field Use Last buttons
@@ -3424,6 +3458,8 @@
 
             closeCaptionModal() {
                 $('modal-caption').classList.add('hidden');
+                // A cancelled batch must not linger in the queue and resurface later
+                if (state.batchMode) state.queue = [];
                 state.pendingBlob = null; state.tempMeta = null;
                 state.batchMode = false; state.pendingType = 'photo';
                 $('btn-save-upload').innerText = "Save";
@@ -3460,48 +3496,51 @@
                 // BATCH MODE (gallery multi-select only — series mode uses uploadQueue/runQueueUpload)
                 if (state.batchMode) {
                     const doOverlay = ($('burn-toggle')?.checked ?? true);
-                    const count = state.queue.length;
+                    const batch = [...state.queue];
+                    const count = batch.length;
                     // Freeze max before loop — Firestore listener updates state.items mid-upload
                     let currentMax = state.items
                         .filter(i => i.type === 'photo')
                         .reduce((max, i) => Math.max(max, i.photoNumber || 0), 0);
+                    // Read the caption before closing the modal clears it
+                    const metas = batch.map(item => {
+                        const type = item.type || 'photo';
+                        if (type === 'photo') currentMax++;
+                        // Use per-item EXIF location if present (gallery batch), else live GPS
+                        state.tempMeta = (item.exifLat && item.exifLng)
+                            ? { timestamp: item.timestamp, lat: item.exifLat, lng: item.exifLng }
+                            : null;
+                        const meta = this.createMeta(item.id, item.timestamp, null, type === 'photo' ? currentMax : currentMax + 1);
+                        meta.type = type;
+                        return meta;
+                    });
+                    state.tempMeta = null;
                     toggleLoader(true, `Processing ${count} items...`);
                     this.closeCaptionModal();
                     let savedOffline = 0;
+                    const lost = [];
                     try {
-                        for (const [idx, item] of state.queue.entries()) {
-                            currentMax++;
-                            // Use per-item EXIF location if present (gallery batch), else live GPS
-                            if (item.exifLat && item.exifLng) {
-                                state.tempMeta = { timestamp: item.timestamp, lat: item.exifLat, lng: item.exifLng };
-                            } else {
-                                state.tempMeta = null;
-                            }
-                            const meta = this.createMeta(item.id, item.timestamp, null, currentMax);
-                            meta.type = 'photo';
-                            state.tempMeta = null; // clear after use
+                        for (const [idx, item] of batch.entries()) {
+                            const meta = metas[idx];
                             toggleLoader(true, `Uploading ${idx+1} of ${count}…`);
-                            if (!state.online) {
-                                await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
-                                savedOffline++;
-                            } else {
-                                try {
-                                    await withUploadTimeout(this.uploadWorkflow(item.blob, meta, doOverlay), getTimeoutMs());
-                                } catch(e) {
-                                    // Timed out — save to outbox
-                                    await this.offlineMgr.addToOutbox({ id: item.id, blob: item.blob, meta, doOverlay, type: 'photo' });
-                                    savedOffline++;
-                                }
-                            }
+                            const res = await this._uploadOrQueue(item.blob, meta, doOverlay);
+                            if (res === 'offline') savedOffline++;
+                            else if (res === 'lost') lost.push(item);
                         }
-                        const uploaded = count - savedOffline;
-                        if (savedOffline > 0 && uploaded > 0) showToast(`${uploaded} uploaded, ${savedOffline} saved offline`);
-                        else if (savedOffline > 0) showToast(`Slow connection — ${savedOffline} saved offline`);
-                        else showToast("Batch Upload Complete");
-                        state.queue = [];
-                        this.switchTab('report');
-                    } catch(e) { alert("Batch Error: " + e.message); }
-                    finally { toggleLoader(false); }
+                    } finally { toggleLoader(false); }
+                    const uploaded = count - savedOffline - lost.length;
+                    if (lost.length > 0) {
+                        alert(`${lost.length} of ${count} item${lost.length !== 1 ? 's' : ''} could not be uploaded or saved offline.\n\nThey are still on this screen — try again.`);
+                        state.queue = lost;
+                        this.openBatchCaptionModal();
+                        $('cap-title').value = metas[0].title;
+                        $('cap-desc').value = metas[0].detailedDesc;
+                        return;
+                    }
+                    if (savedOffline > 0 && uploaded > 0) showToast(`${uploaded} uploaded, ${savedOffline} saved offline`);
+                    else if (savedOffline > 0) showToast(`Slow connection — ${savedOffline} saved offline`);
+                    else showToast("Batch Upload Complete");
+                    this.switchTab('report');
                     return;
                 }
 
@@ -3515,32 +3554,52 @@
                 const doOverlay = ($('burn-toggle')?.checked ?? true);
                 const blobToUpload = state.pendingBlob;
                 meta.type = state.pendingType || 'photo';
+                const wasOnline = state.online;
 
-                if(!state.online) {
-                    toggleLoader(true, "Saving Offline...");
-                    await this.offlineMgr.addToOutbox({ id: state.pendingId, blob: blobToUpload, meta, doOverlay, type: meta.type });
-                    this.closeCaptionModal();
-                    toggleLoader(false);
-                    showToast("Saved to Outbox (Offline)");
-                    return;
-                }
-
-                toggleLoader(true, "Uploading…");
+                toggleLoader(true, wasOnline ? "Uploading…" : "Saving Offline...");
                 this.closeCaptionModal();
+                let res;
                 try {
-                    await withUploadTimeout(this.uploadWorkflow(blobToUpload, meta, doOverlay), getTimeoutMs());
+                    res = await this._uploadOrQueue(blobToUpload, meta, doOverlay);
+                } finally {
+                    toggleLoader(false);
+                }
+                if (res === 'uploaded') {
                     showToast("Upload Complete ✓");
                     this.switchTab('report');
-                } catch(e) {
-                    if(e.message === 'UPLOAD_TIMEOUT') {
-                        toggleLoader(true, "Slow connection — saving offline…");
-                        await this.offlineMgr.addToOutbox({ id: meta.id, blob: blobToUpload, meta, doOverlay, type: meta.type });
-                        showToast("⚡ Saved offline — will upload when signal improves");
-                    } else {
-                        alert("Upload Error: " + e.message);
+                } else if (res === 'offline') {
+                    showToast(wasOnline ? "⚡ Saved offline — will upload when signal improves" : "Saved to Outbox (Offline)");
+                } else {
+                    // Neither uploaded nor stored — reopen the caption screen so nothing is lost
+                    alert("This item could not be uploaded or saved offline (device storage may be full or unavailable).\n\nIt is still on screen — please try again.");
+                    state.pendingBlob = blobToUpload;
+                    state.pendingId = meta.id;
+                    state.tempMeta = { timestamp: meta.timestamp, lat: meta.lat, lng: meta.lng };
+                    this.openCaptionModal(blobToUpload);
+                    state.pendingType = meta.type;
+                    $('cap-title').value = meta.title;
+                    $('cap-desc').value = meta.detailedDesc;
+                }
+            }
+
+            // Upload now, or fall back to the offline outbox on any failure.
+            // Resolves 'uploaded' | 'offline' | 'lost' — 'lost' means neither worked
+            // and the caller still holds the only copy.
+            async _uploadOrQueue(blob, meta, doOverlay) {
+                if (state.online) {
+                    try {
+                        await withUploadTimeout(this.uploadWorkflow(blob, meta, doOverlay), getTimeoutMs());
+                        return 'uploaded';
+                    } catch(e) {
+                        console.warn('Upload failed, saving to outbox', meta.id, e);
                     }
-                } finally {
-                    toggleLoader(false); // always dismiss — was missing, causing stuck spinner on success
+                }
+                try {
+                    await this.offlineMgr.addToOutbox({ id: meta.id, blob, meta, doOverlay, type: meta.type || 'photo' });
+                    return 'offline';
+                } catch(e) {
+                    console.error('Could not save to outbox', meta.id, e);
+                    return 'lost';
                 }
             }
 
@@ -3548,12 +3607,14 @@
                 if (!blob) { console.error("Upload failed: No blob provided"); return; }
                 let ext = 'jpg';
                 if (blob.name) { const parts = blob.name.split('.'); if (parts.length > 1) ext = parts.pop(); }
-                const rawPath = `artifacts/${appId}/public/data/files/${state.project}/raw_${meta.id}.${ext}`;
+                // The entry's own project — not whichever one is open when the outbox syncs
+                const project = meta.projectId || state.project;
+                const rawPath = `artifacts/${appId}/public/data/files/${project}/raw_${meta.id}.${ext}`;
                 await uploadBytes(ref(state.storage, rawPath), blob);
                 meta.rawStoragePath = rawPath;
                 let finalBlob = blob;
                 if(doOverlay) finalBlob = await this.burnOverlay(blob, meta);
-                const dispPath = `artifacts/${appId}/public/data/files/${state.project}/${meta.id}.jpg`;
+                const dispPath = `artifacts/${appId}/public/data/files/${project}/${meta.id}.jpg`;
                 const snap = await uploadBytes(ref(state.storage, dispPath), finalBlob);
                 const url = await getDownloadURL(snap.ref);
                 meta.url = url; meta.storagePath = dispPath;
@@ -3633,6 +3694,8 @@
                 $('modal-sketch').classList.remove('hidden');
                 const wrap = $('sketch-wrapper');
                 this._sketchPages    = this._sketchPages || [null];
+                this._sketchPageImages = [];
+                this._sketchAnnotating = false;
                 this._sketchPageIdx  = 0;
                 this._sketchTool     = this._sketchTool   || 'pen';
                 this._sketchBg       = this._sketchBg     || 'plain';
@@ -3655,11 +3718,11 @@
                 canvas.height = wrap.clientHeight;
                 const ctx = canvas.getContext('2d');
                 ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-                this.wbCtx = ctx; this.bgImage = null;
+                this.wbCtx = ctx; this.bgImage = this._sketchPageImages?.[this._sketchPageIdx] || null;
                 this.isDrawing = false;
                 this._sketchScale = 1; this._sketchPanX = 0; this._sketchPanY = 0;
                 this._applySketchTransform(canvas);
-                this._drawSketchBackground(ctx, canvas.width, canvas.height);
+                this._renderSketchPaper(canvas);
                 // Restore page content if exists
                 const saved = this._sketchPages[this._sketchPageIdx];
                 if (saved) {
@@ -3668,6 +3731,82 @@
                     img.src = saved;
                 }
                 this._bindSketchPointers(canvas, ctx);
+            }
+
+            _applySketchTransform(canvas) {
+                // Apply zoom + pan as CSS transform — canvas pixel buffer stays full-res
+                canvas.style.transformOrigin = '0 0';
+                canvas.style.transform = `translate(${this._sketchPanX}px, ${this._sketchPanY}px) scale(${this._sketchScale})`;
+                const btn = $('sketch-zoom-btn');
+                if (btn) btn.innerText = this._sketchScale === 1 ? '1×' : `${this._sketchScale.toFixed(1)}×`;
+            }
+
+            // ── Background (paper) ─────────────────────────────────────────
+            // Strokes live on a transparent canvas; the paper (ruling or the photo
+            // being annotated) is the canvas's CSS background, so the eraser reveals
+            // paper instead of punching holes. Pages are merged with it on save.
+            _SKETCH_RULE = 24;
+
+            setSketchBg(bg) {
+                this._sketchBg = bg;
+                this._updateSketchBgButtons();
+                this._renderSketchPaper($('sketch-canvas'));
+            }
+
+            _updateSketchBgButtons() {
+                ['plain','lines','grid'].forEach(bg => {
+                    const btn = $('sketch-bg-' + bg);
+                    if (!btn) return;
+                    const on = bg === this._sketchBg;
+                    btn.classList.toggle('bg-white', on);
+                    btn.classList.toggle('shadow', on);
+                    btn.classList.toggle('text-slate-800', on);
+                    btn.classList.toggle('text-slate-500', !on);
+                });
+            }
+
+            _renderSketchPaper(canvas) {
+                const s = this._SKETCH_RULE, rule = '#cbd5e1';
+                const layers = [], sizes = [];
+                if (this.bgImage) { layers.push(`url("${this.bgImage.src}")`); sizes.push('contain'); }
+                if (this._sketchBg === 'lines' || this._sketchBg === 'grid') {
+                    layers.push(`linear-gradient(to bottom, transparent ${s-1}px, ${rule} ${s-1}px)`); sizes.push(`100% ${s}px`);
+                }
+                if (this._sketchBg === 'grid') {
+                    layers.push(`linear-gradient(to right, transparent ${s-1}px, ${rule} ${s-1}px)`); sizes.push(`${s}px 100%`);
+                }
+                canvas.style.backgroundColor = '#ffffff';
+                canvas.style.backgroundImage = layers.join(', ');
+                canvas.style.backgroundSize = sizes.join(', ');
+                canvas.style.backgroundPosition = this.bgImage ? 'center, 0 0, 0 0' : '0 0';
+                canvas.style.backgroundRepeat = this.bgImage ? 'no-repeat, repeat, repeat' : 'repeat';
+            }
+
+            // Paints the same paper onto an export canvas (matches _renderSketchPaper)
+            _drawSketchBackground(ctx, w, h, bgImage = this.bgImage) {
+                const s = this._SKETCH_RULE;
+                ctx.save();
+                ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1;
+                ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);
+                ctx.fillStyle = '#cbd5e1';
+                if (this._sketchBg === 'lines' || this._sketchBg === 'grid') {
+                    for (let y = s - 1; y < h; y += s) ctx.fillRect(0, y, w, 1);
+                }
+                if (this._sketchBg === 'grid') {
+                    for (let x = s - 1; x < w; x += s) ctx.fillRect(x, 0, 1, h);
+                }
+                if (bgImage) {
+                    const scale = Math.min(w / bgImage.width, h / bgImage.height);
+                    ctx.drawImage(bgImage, (w - bgImage.width * scale) / 2, (h - bgImage.height * scale) / 2,
+                        bgImage.width * scale, bgImage.height * scale);
+                }
+                ctx.restore();
+            }
+
+            _isSketchBlank(canvas) {
+                const data = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+                for (let i = 3; i < data.length; i += 4) if (data[i] !== 0) return false;
+                return true;
             }
 
             // ── Tool management ────────────────────────────────────────────
@@ -4052,7 +4191,7 @@
                 const [sr, sg, sb, sa] = [data[sIdx], data[sIdx+1], data[sIdx+2], data[sIdx+3]];
 
                 // Don't fill if already same color
-                if (sr === fr && sg === fg && sb === fb) return;
+                if (sr === fr && sg === fg && sb === fb && sa === fa) return;
 
                 const colorMatch = (i) =>
                     Math.abs(data[i] - sr) < 32 && Math.abs(data[i+1] - sg) < 32 &&
@@ -4085,7 +4224,9 @@
 
             _saveCurrentPage() {
                 const c = $('sketch-canvas');
-                this._sketchPages[this._sketchPageIdx] = c.toDataURL();
+                // Blank pages are kept as null so they're skipped on save (annotations always count)
+                this._sketchPages[this._sketchPageIdx] =
+                    (this.bgImage || !this._isSketchBlank(c)) ? c.toDataURL() : null;
             }
 
             sketchPrevPage() {
@@ -4153,29 +4294,52 @@
             }
 
             // ── Save / Clear / Close ───────────────────────────────────────
-            saveSketch() {
-                this._saveCurrentPage();
-                const pages = this._sketchPages.filter(Boolean);
-                if (pages.length === 0) { this.closeSketch(); return; }
-                // Save all pages as separate sketch entries
-                let saved = 0;
-                const saveNext = () => {
-                    if (saved >= pages.length) { this.closeSketch(); return; }
+            // Merge a page's strokes onto its paper and encode as JPEG
+            _composeSketchPage(src, bgImage) {
+                return new Promise((resolve, reject) => {
                     const img = new Image();
                     img.onload = () => {
-                        const c = document.createElement('canvas');
-                        c.width = img.width; c.height = img.height;
-                        c.getContext('2d').drawImage(img, 0, 0);
-                        c.toBlob(blob => {
-                            if (blob) this.handleFileSelect(blob, false, 'sketch');
-                            saved++;
-                            saveNext();
-                        }, 'image/jpeg', 0.95);
+                        try {
+                            const c = document.createElement('canvas');
+                            c.width = img.width; c.height = img.height;
+                            const ctx = c.getContext('2d');
+                            this._drawSketchBackground(ctx, c.width, c.height, bgImage);
+                            ctx.drawImage(img, 0, 0);
+                            c.toBlob(blob => blob ? resolve(blob) : reject(new Error('Could not encode sketch')), 'image/jpeg', 0.95);
+                        } catch(e) { reject(e); }   // e.g. a cross-origin photo taints the canvas
                     };
-                    img.src = pages[saved];
-                };
-                saveNext();
+                    img.onerror = () => reject(new Error('Could not read sketch page'));
+                    img.src = src;
+                });
+            }
+
+            async saveSketch() {
+                this._saveCurrentPage();
+                const pages = this._sketchPages
+                    .map((src, i) => ({ src, bg: this._sketchPageImages?.[i] || null }))
+                    .filter(p => p.src);
+                if (pages.length === 0) { this.closeSketch(); return; }
+                let blobs;
+                try {
+                    blobs = await Promise.all(pages.map(p => this._composeSketchPage(p.src, p.bg)));
+                } catch(e) {
+                    showToast('Could not save sketch: ' + e.message);
+                    return;
+                }
                 this._sketchPages = [null]; this._sketchPageIdx = 0;
+                this.closeSketch();
+                if (blobs.length === 1) {
+                    this.handleFileSelect(blobs[0], false, 'sketch');
+                } else {
+                    // Several pages: caption and upload them together as a batch
+                    const now = Date.now();
+                    state.queue = blobs.map((blob, i) => ({
+                        blob, type: 'sketch',
+                        id: `${now}_${i}_${Math.random().toString(36).slice(2, 6)}`,
+                        timestamp: now + i
+                    }));
+                    this.openBatchCaptionModal();
+                }
             }
 
             closeSketch() {
@@ -4183,18 +4347,20 @@
                 this.cancelSketchText();
                 screen.orientation?.unlock?.();
                 this._sketchLandscape = false;
+                if (this._sketchAnnotating) {
+                    // An annotation isn't a resumable sketch draft
+                    this._sketchPages = [null]; this._sketchPageIdx = 0;
+                    this._sketchAnnotating = false;
+                }
+                this._sketchPageImages = [];
+                this.bgImage = null;
                 $('modal-sketch').classList.add('hidden');
             }
 
             clearSketch() {
                 const c = $('sketch-canvas'), ctx = this.wbCtx;
                 this._pushUndo();
-                this._drawSketchBackground(ctx, c.width, c.height);
-                if (this.bgImage) {
-                    const img = this.bgImage;
-                    const scale = Math.min(c.width / img.width, c.height / img.height);
-                    ctx.drawImage(img, (c.width/2)-(img.width/2)*scale, (c.height/2)-(img.height/2)*scale, img.width*scale, img.height*scale);
-                }
+                ctx.clearRect(0, 0, c.width, c.height);
             }
 
             resetSketchZoom() {
@@ -4213,13 +4379,25 @@
                     const canvas = $('sketch-canvas'), wrap = $('sketch-wrapper');
                     canvas.width = wrap.clientWidth; canvas.height = wrap.clientHeight;
                     const ctx = canvas.getContext('2d');
-                    this.wbCtx = ctx; this.undoStack = [];
-                    ctx.fillStyle = "#fff"; ctx.fillRect(0,0,canvas.width, canvas.height);
+                    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+                    this.wbCtx = ctx; this.undoStack = []; this.redoStack = [];
+                    this._sketchPages = [null]; this._sketchPageIdx = 0;
+                    this._sketchPageImages = [];
+                    this._sketchAnnotating = true;
+                    this._sketchBg = 'plain';
+                    this.bgImage = null;
+                    this._updateSketchBgButtons();
+                    this._updateSketchPageLabel();
+                    this._renderSketchPaper(canvas);
+                    this._buildSwatches();
+                    this.selectSketchTool(this._sketchTool || 'pen');
+                    this._updateOpacityLabel();
                     const img = new Image(); img.crossOrigin = "Anonymous";
                     img.onload = () => {
-                        const scale = Math.min(canvas.width/img.width, canvas.height/img.height);
-                        ctx.drawImage(img, (canvas.width/2)-(img.width/2)*scale, (canvas.height/2)-(img.height/2)*scale, img.width*scale, img.height*scale);
-                        this.bgImage = img; toggleLoader(false);
+                        // The photo is the page's paper; strokes stay on the transparent canvas
+                        this.bgImage = img; this._sketchPageImages[0] = img;
+                        this._renderSketchPaper(canvas);
+                        toggleLoader(false);
                     };
                     img.onerror = () => { toggleLoader(false); showToast("Error loading image"); };
                     img.src = src;
@@ -4286,6 +4464,7 @@
                 $('note-linked-thumb').classList.add('hidden');
                 $('note-linked-title').classList.add('hidden');
                 $('btn-clear-photo-link').classList.add('hidden');
+                $('btn-link-photo').style.display = '';   // hidden by _renderLinkedPhoto for the previous note
 
                 if (item) {
                     // ── Edit mode ──────────────────────────────────────────
@@ -4409,19 +4588,28 @@
                     if (!meta.dateString) meta.dateString = formatDate(meta.timestamp);
                 }
 
-                // Clear draft on successful save
-                localStorage.removeItem(this._noteDraftKey());
-
-                if (!state.online) {
-                    await this.offlineMgr.addToOutbox({ id, meta, type: 'note' });
-                    this.closeNotes(true);
-                    showToast(isNew ? 'Note Saved (Offline)' : 'Note Updated (Offline)');
-                    this.switchTab('report');
+                let offline = !state.online;
+                try {
+                    if (!offline) {
+                        try {
+                            await withUploadTimeout(setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta), getTimeoutMs());
+                        } catch(e) {
+                            console.warn('Note save failed, saving to outbox', id, e);
+                            offline = true;
+                        }
+                    }
+                    if (offline) await this.offlineMgr.addToOutbox({ id, meta, type: 'note' });
+                } catch(e) {
+                    // Keep the editor open (and the draft) so nothing is lost
+                    alert('Note could not be saved: ' + e.message + '\n\nYour note is still open — please try again.');
                     return;
                 }
-                await setDoc(doc(state.db, `artifacts/${appId}/public/data/images`, id), meta);
+
+                // Clear draft only once the note is safely stored
+                localStorage.removeItem(this._noteDraftKey());
                 this.closeNotes(true);
-                showToast(isNew ? 'Note Saved' : 'Note Updated');
+                if (offline) showToast(isNew ? 'Note Saved (Offline)' : 'Note Updated (Offline)');
+                else showToast(isNew ? 'Note Saved' : 'Note Updated');
                 this.switchTab('report');
             }
 
@@ -4961,13 +5149,9 @@
                 this.map.closePopup();
                 const item = state.items.find(i => i.id === id);
                 if (!item) return;
-                // Populate and open the notes modal in read-only-style view
-                $('note-modal-title').innerText = item.title || 'Note';
-                $('note-title').value = item.title || '';
-                // note-text removed; editor is now contenteditable #note-editor (handled in openNotes)
-                $('btn-save-note').innerText = 'Update Note';
-                state.editingNoteId = item.id;
-                $('modal-notes').classList.remove('hidden');
+                // Same editor as opening from the log — loads the body so "Update Note"
+                // can't save an empty editor over the stored note
+                this.openNotes(item);
             }
 
             centerMap() {
@@ -5720,7 +5904,9 @@
                         );
                         metaSnap.forEach(d => {
                             const data = d.data();
-                            metaOverrides[data.storagePath] = data;
+                            // Older override docs may exist under a legacy ID — newest wins
+                            const prev = metaOverrides[data.storagePath];
+                            if (!prev || (data.updatedAt || 0) >= (prev.updatedAt || 0)) metaOverrides[data.storagePath] = data;
                         });
                     } catch(e) {}
 
@@ -5902,7 +6088,9 @@
                     // updateMetadata IS part of the firebase-storage v9 SDK but was not
                     // in the static import list. Use a Firestore document as a metadata
                     // override — keyed by storagePath, stores displayName + category.
-                    const overrideId = btoa(storagePath).replace(/[^a-zA-Z0-9]/g, '_').slice(0, 60);
+                    // Hash of the full path — a truncated btoa() prefix was shared by every
+                    // plan in a project (and btoa throws on non-Latin-1 names)
+                    const overrideId = 'pm_' + hashKey(storagePath);
                     await setDoc(
                         doc(state.db, `artifacts/${appId}/public/data/plan_meta`, overrideId),
                         { storagePath, displayName: newName.trim(), category, updatedAt: Date.now() }
@@ -6669,13 +6857,17 @@
                     // Deterministic ID — same PDF page always maps to the same ID
                     // so repeated saves overwrite the existing log entry and storage
                     // file instead of creating duplicates.
-                    const pathKey = (this._currentPDFMeta?.storagePath || 'unknown')
-                        .replace(/[^a-zA-Z0-9]/g, '_').slice(-30);
-                    const id = `plan_${pathKey}_p${this._pdfPageNum}`;
+                    // Hash the full storage path: the old 30-char tail cut off the
+                    // timestamp, so long same-named plans overwrote each other's pages.
+                    const storagePath = this._currentPDFMeta?.storagePath || 'unknown';
+                    const legacyId = `plan_${storagePath.replace(/[^a-zA-Z0-9]/g, '_').slice(-30)}_p${this._pdfPageNum}`;
+                    const legacy = state.items.find(i => i.id === legacyId && i.projectId === state.project
+                        && i.planSource === (this._currentPDFMeta?.displayName || ''));
+                    const id = legacy ? legacyId : `plan_${hashKey(storagePath)}_p${this._pdfPageNum}`;
 
                     // Re-use existing photoNumber if this entry was saved before,
                     // otherwise assign the next available number.
-                    const existing = state.items.find(i => i.id === id);
+                    const existing = legacy || state.items.find(i => i.id === id);
                     const num = existing?.photoNumber
                         ?? (state.items.filter(i => i.type === 'photo').reduce((m, i) => Math.max(m, i.photoNumber || 0), 0) + 1);
 
@@ -7423,10 +7615,14 @@
 
                     // Deterministic ID — same project + page index always maps to the
                     // same log entry so re-saving overwrites instead of duplicating.
+                    // Hash the full project name: truncating it made similar names
+                    // (e.g. "… Phase 1" / "… Phase 2") share an ID and overwrite each other.
                     const projectKey = state.project.replace(/[^a-z0-9]/gi, '_').slice(0, 20);
-                    const id = `np_${projectKey}_p${idx}`;
+                    const legacyId = `np_${projectKey}_p${idx}`;
+                    const legacy = state.items.find(i => i.id === legacyId && i.projectId === state.project);
+                    const id = legacy ? legacyId : `np_${projectKey}_${hashKey(state.project)}_p${idx}`;
 
-                    const existing = state.items.find(i => i.id === id);
+                    const existing = legacy || state.items.find(i => i.id === id);
 
                     const meta = {
                         id, projectId: state.project, type: 'notepad',
