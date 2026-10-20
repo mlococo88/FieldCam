@@ -755,6 +755,8 @@
         <div class="flex-1 relative overflow-hidden flex flex-col">
             <div id="pdf-canvas-wrap" class="flex-1 relative overflow-hidden flex items-center justify-center bg-slate-900 touch-none">
                 <canvas id="pdf-render-canvas" class="absolute shadow-2xl" style="transform-origin:center center;"></canvas>
+                <!-- Sharp re-render of just the visible area when zoomed in (screen coordinates) -->
+                <canvas id="pdf-detail-canvas" style="position:absolute;left:0;top:0;pointer-events:none;visibility:hidden;"></canvas>
                 <canvas id="pdf-draw-canvas" class="absolute" style="transform-origin:center center; touch-action:none; cursor:crosshair;"></canvas>
             </div>
             <div id="pdf-thumb-strip" class="flex-none h-20 bg-slate-800 border-t border-slate-700 flex items-center gap-2 px-3 overflow-x-auto no-scrollbar py-2"></div>
@@ -1903,6 +1905,9 @@
             });
             return Promise.race([promise, timeout]).finally(() => { clearTimeout(timer); hideTimeoutBar(); });
         }
+
+        // Max pixels for the plan viewer's full-page bitmap (iOS caps a canvas at ~16.7M)
+        const PDF_BASE_PIXEL_BUDGET = 6e6;
 
         // Map tiles for the Map tab and the PDF site map (no API key needed)
         const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -6547,38 +6552,66 @@
                 const wrapH = wrap.clientHeight || (window.innerHeight - 160);
                 const vp0   = page.getViewport({ scale: 1 });
                 const fit   = Math.min((wrapW - 32) / vp0.width, (wrapH - 32) / vp0.height, 2.5);
-                const vp    = page.getViewport({ scale: fit });
+                const cssW  = vp0.width * fit, cssH = vp0.height * fit;   // on-screen size at zoom 1
+                this._pdfPage = page;
+                this._pdfFit  = fit;
+                this._hidePDFDetail();
+
+                // Resolution: the page used to be drawn at CSS size (1 bitmap px per CSS px),
+                // so phones (2-3 device px per CSS px) showed it blurry and pinch-zoom only
+                // magnified that small bitmap. Draw at device resolution, up to 2x more so
+                // moderate zoom stays crisp, within a pixel budget that keeps iOS happy.
+                // Deeper zoom is handled by _renderPDFDetail().
+                const dpr = Math.min(window.devicePixelRatio || 1, 3);
+                const budget = Math.sqrt(PDF_BASE_PIXEL_BUDGET / (cssW * cssH));
+                const renderRatio = Math.max(1, Math.min(dpr * 2, budget));
+                const drawRatio   = Math.max(1, Math.min(dpr, budget));
+                this._pdfDrawRatio = drawRatio;
 
                 const rc = $('pdf-render-canvas');
                 const dc = $('pdf-draw-canvas');
-                rc.width = dc.width  = vp.width;
-                rc.height = dc.height = vp.height;
+                rc.width  = Math.round(cssW * renderRatio); rc.height = Math.round(cssH * renderRatio);
+                dc.width  = Math.round(cssW * drawRatio);   dc.height = Math.round(cssH * drawRatio);
 
-                const cx = (wrapW - vp.width) / 2;
-                const cy = (wrapH - vp.height) / 2;
+                const cx = (wrapW - cssW) / 2;
+                const cy = (wrapH - cssH) / 2;
                 // Store base offset so pinch-zoom can anchor correctly to the midpoint
                 this._pdfBaseLeft = cx;
                 this._pdfBaseTop  = cy;
                 [rc, dc].forEach(c => {
                     Object.assign(c.style, { left: cx + 'px', top: cy + 'px', position: 'absolute',
+                        width: cssW + 'px', height: cssH + 'px',
                         transform: 'translate(' + this._pdfPanX + 'px,' + this._pdfPanY + 'px) scale(' + this._pdfScale + ')',
                         transformOrigin: '0 0' });
                 });
 
-                await page.render({ canvasContext: rc.getContext('2d'), viewport: vp }).promise;
+                // Fast page flips used to start two renders on one canvas; cancel the old one
+                if (this._pdfRenderTask) { try { this._pdfRenderTask.cancel(); } catch(e) {} }
+                const task = this._pdfRenderTask = page.render({
+                    canvasContext: rc.getContext('2d'),
+                    viewport: page.getViewport({ scale: fit * renderRatio })
+                });
+                try { await task.promise; }
+                catch(e) { if (e?.name === 'RenderingCancelledException') return; throw e; }
+                finally { if (this._pdfRenderTask === task) this._pdfRenderTask = null; }
 
                 // Load persisted markup if any — must be awaited so the canvas
                 // is fully populated before this function returns. Without await,
                 // a call to _saveMarkup() immediately after would see an empty canvas
                 // and delete the saved markup from IndexedDB.
+                // Markup is drawn in page coordinates (CSS px at zoom 1); the transform maps
+                // them onto the higher-resolution bitmap
                 const dCtx = dc.getContext('2d');
-                dCtx.clearRect(0, 0, dc.width, dc.height);
+                dCtx.setTransform(drawRatio, 0, 0, drawRatio, 0, 0);
+                dCtx.clearRect(0, 0, cssW, cssH);
                 const markupKey = this._markupKey(this._pdfPageNum);
                 const saved = await this.offlineMgr.loadMarkup(markupKey);
                 if (saved) {
                     await new Promise(resolve => {
                         const img = new Image();
-                        img.onload  = () => { dCtx.drawImage(img, 0, 0); resolve(); };
+                        // Stretch to the page: saved markup may come from another resolution
+                        // or screen size, and used to land misaligned
+                        img.onload  = () => { dCtx.drawImage(img, 0, 0, cssW, cssH); resolve(); };
                         img.onerror = () => resolve(); // resolve even on error so we don't hang
                         img.src = saved;
                     });
@@ -6922,10 +6955,12 @@
                     }
                 }, { ...sig });
 
+                // Page coordinates (the context transform scales them to the bitmap)
                 const toCanvas = (cx, cy) => {
                     const rect = dc.getBoundingClientRect();
-                    return { x: (cx - rect.left) * (dc.width / rect.width),
-                             y: (cy - rect.top)  * (dc.height / rect.height) };
+                    const r = this._pdfDrawRatio || 1;
+                    return { x: (cx - rect.left) * (dc.width / rect.width) / r,
+                             y: (cy - rect.top)  * (dc.height / rect.height) / r };
                 };
 
                 const getDist = (p1, p2) => Math.hypot(p2.clientX - p1.clientX, p2.clientY - p1.clientY);
@@ -7183,6 +7218,59 @@
             _applyPDFTransform() {
                 const t = 'translate(' + this._pdfPanX + 'px,' + this._pdfPanY + 'px) scale(' + this._pdfScale + ')';
                 [$('pdf-render-canvas'), $('pdf-draw-canvas')].forEach(c => { if(c) c.style.transform = t; });
+                // The detail layer is in screen coordinates: hide it while the view moves,
+                // re-render once the gesture settles
+                this._hidePDFDetail();
+                clearTimeout(this._pdfDetailTimer);
+                this._pdfDetailTimer = setTimeout(() => this._renderPDFDetail(), 180);
+            }
+
+            _hidePDFDetail() {
+                clearTimeout(this._pdfDetailTimer);
+                this._pdfDetailToken = (this._pdfDetailToken || 0) + 1;   // drop any render in flight
+                if (this._pdfDetailTask) { try { this._pdfDetailTask.cancel(); } catch(e) {} this._pdfDetailTask = null; }
+                const c = $('pdf-detail-canvas');
+                if (c) c.style.visibility = 'hidden';
+            }
+
+            // Zoomed in, the full-page bitmap runs out of pixels. Render only what's on
+            // screen at full device resolution, so plan text stays readable at any zoom
+            // without the memory cost of a huge full-page canvas.
+            async _renderPDFDetail() {
+                const page = this._pdfPage, canvas = $('pdf-detail-canvas'), wrap = $('pdf-canvas-wrap');
+                if (!page || !canvas || !wrap || !this._pdfFit) return;
+                const dpr = Math.min(window.devicePixelRatio || 1, 3);
+                const rc = $('pdf-render-canvas');
+                // Base bitmap still has enough pixels for this zoom: nothing to add
+                if (rc && rc.width >= parseFloat(rc.style.width) * this._pdfScale * dpr * 0.95) return;
+
+                const token = ++this._pdfDetailToken;
+                const w = wrap.clientWidth, h = wrap.clientHeight;
+                const pageX = (this._pdfBaseLeft || 0) + this._pdfPanX;   // page origin on screen (CSS px)
+                const pageY = (this._pdfBaseTop  || 0) + this._pdfPanY;
+                const scale = this._pdfFit * this._pdfScale;              // page units -> CSS px
+                const buf = this._pdfDetailBuf || (this._pdfDetailBuf = document.createElement('canvas'));
+                buf.width = Math.round(w * dpr); buf.height = Math.round(h * dpr);
+                const task = this._pdfDetailTask = page.render({
+                    canvasContext: buf.getContext('2d'),
+                    viewport: page.getViewport({ scale: scale * dpr, offsetX: pageX * dpr, offsetY: pageY * dpr })
+                });
+                try { await task.promise; }
+                catch(e) { return; }   // cancelled by a newer gesture or page change
+                if (token !== this._pdfDetailToken) return;
+                this._pdfDetailTask = null;
+
+                // pdf.js paints the whole buffer white; copy only the page's own rectangle
+                const vp0 = page.getViewport({ scale: 1 });
+                const x0 = Math.max(0, pageX * dpr), y0 = Math.max(0, pageY * dpr);
+                const x1 = Math.min(buf.width,  (pageX + vp0.width  * scale) * dpr);
+                const y1 = Math.min(buf.height, (pageY + vp0.height * scale) * dpr);
+                canvas.width = buf.width; canvas.height = buf.height;
+                canvas.style.width = w + 'px'; canvas.style.height = h + 'px';
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                if (x1 > x0 && y1 > y0) ctx.drawImage(buf, x0, y0, x1 - x0, y1 - y0, x0, y0, x1 - x0, y1 - y0);
+                canvas.style.visibility = 'visible';
             }
 
             // ── UNDO / CLEAR ─────────────────────────────────────────────────
@@ -7192,7 +7280,8 @@
                 const dc   = $('pdf-draw-canvas');
                 const dCtx = dc.getContext('2d');
                 const img  = new Image();
-                img.onload = () => { dCtx.clearRect(0,0,dc.width,dc.height); dCtx.drawImage(img,0,0); this._pdfDirty = true; this._saveMarkup(); };
+                const r = this._pdfDrawRatio || 1;
+                img.onload = () => { dCtx.clearRect(0,0,dc.width,dc.height); dCtx.drawImage(img, 0, 0, dc.width / r, dc.height / r); this._pdfDirty = true; this._saveMarkup(); };
                 img.src = this._pdfUndoStack.pop();
             }
 
@@ -7235,7 +7324,7 @@
                 merged.height = rc.height;
                 const mCtx = merged.getContext('2d');
                 mCtx.drawImage(rc, 0, 0);
-                mCtx.drawImage(dc, 0, 0);
+                mCtx.drawImage(dc, 0, 0, merged.width, merged.height);   // markup bitmap may be a different resolution
 
                 merged.toBlob(async (blob) => {
                     if (!blob) return;
@@ -7293,7 +7382,11 @@
                 this.cancelPDFText();
                 this.closePDFStampPicker();
                 this._hideHoverCursor();
-                this._pdfDoc = null;
+                this._hidePDFDetail();
+                if (this._pdfRenderTask) { try { this._pdfRenderTask.cancel(); } catch(e) {} this._pdfRenderTask = null; }
+                // Free the document's worker memory (large plans held on after closing)
+                if (this._pdfDoc) { try { this._pdfDoc.destroy(); } catch(e) {} }
+                this._pdfDoc = null; this._pdfPage = null;
                 $('modal-pdf-markup').classList.add('hidden');
                 $('modal-pdf-markup').style.display = 'none';
             }
