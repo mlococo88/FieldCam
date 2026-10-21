@@ -3092,7 +3092,12 @@
 
             capturePhoto() {
                 const video = $('camera-video');
-                if (!video.srcObject) return;
+                // Only capture from the live stream once it's showing frames. A tap that
+                // arrives first (e.g. the click left over from the tap that opened the
+                // camera) used to grab a black frame from the previous, stopped stream.
+                const live = this._cameraStream && video.srcObject === this._cameraStream
+                    && this._cameraStream.getVideoTracks().some(t => t.readyState === 'live');
+                if (!live || video.readyState < 2 || !video.videoWidth) return;
 
                 // Draw current frame to canvas
                 const canvas = document.createElement('canvas');
@@ -3152,6 +3157,8 @@
                     this._cameraStream.getTracks().forEach(t => t.stop());
                     this._cameraStream = null;
                 }
+                const vid0 = $('camera-video');
+                if (vid0) vid0.srcObject = null;   // never leave a stopped stream that could be captured
                 const cam = $('modal-camera');
                 cam.style.display = 'none';
                 cam.classList.add('hidden');
@@ -8193,13 +8200,16 @@
             initCaptureBar() {
                 const btn = $('btn-camera-main');
                 if (!btn) return;
-                // Tap = camera. Hold 500ms = gallery, opened on release: browsers only let a
-                // file picker open from pointerup/click, so opening it from the timer was blocked.
-                let holdTimer = null, held = false, down = false;
+                // Tap = camera, opened from the click (the last event of a tap). Opening it
+                // on pointerup let the tap's click land on the in-camera shutter that
+                // appears under the finger, taking a black photo.
+                // Hold 500ms = gallery, opened on release (browsers only open a file
+                // picker from a user gesture such as pointerup).
+                let holdTimer = null, held = false, down = false, skipClick = false;
                 const reset = () => { clearTimeout(holdTimer); holdTimer = null; held = false; down = false; btn.classList.remove('pressing', 'held'); };
                 btn.addEventListener('pointerdown', (e) => {
                     if (e.pointerType === 'mouse' && e.button !== 0) return;
-                    down = true; held = false;
+                    down = true; held = false; skipClick = false;
                     btn.classList.add('pressing');
                     holdTimer = setTimeout(() => {
                         held = true;
@@ -8211,13 +8221,15 @@
                     if (!down) return;
                     const wasHeld = held;
                     reset();
-                    if (wasHeld) this._triggerGallery();
-                    else this.openCamera();
+                    if (wasHeld) { skipClick = true; this._triggerGallery(); }
                 });
                 btn.addEventListener('pointercancel', reset);
-                btn.addEventListener('pointerleave', reset);
-                // Keyboard (Enter/Space) produces a click with no pointer events
-                btn.addEventListener('click', (e) => { if (e.detail === 0) this.openCamera(); });
+                btn.addEventListener('pointerleave', () => { if (!held) reset(); });
+                // Click covers taps and keyboard (Enter/Space); skip the one after a hold
+                btn.addEventListener('click', () => {
+                    if (skipClick) { skipClick = false; return; }
+                    this.openCamera();
+                });
                 btn.addEventListener('contextmenu', e => e.preventDefault());
             }
 
