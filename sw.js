@@ -9,7 +9,7 @@
 // Bump CACHE when this file's caching changes or the page's library/font URLs change,
 // so installed copies re-cache them.
 
-const CACHE = 'fieldcam-v2';
+const CACHE = 'fieldcam-v3';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
 const CDN_HOSTS = [
     'cdn.tailwindcss.com', 'unpkg.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net',
@@ -58,7 +58,10 @@ self.addEventListener('activate', (event) => {
 
 async function networkFirst(request) {
     const cache = await caches.open(CACHE);
-    const network = fetch(request).then(res => {
+    // no-cache: always revalidate with the server (a cheap 304 when unchanged).
+    // GitHub Pages sends max-age=600, so a plain fetch could serve a stale page
+    // for 10 minutes after an update.
+    const network = fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }).then(res => {
         if (res.ok) cache.put(request, res.clone());
         return res;
     });
